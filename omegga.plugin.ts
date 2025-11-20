@@ -229,7 +229,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     const writeToChatLog = async (event: Record<string, string>) => {
       const fileName = await this.store.get("currentFileForRPChat");
 
-      const message = `${event.dateTime}\n[${event.user}]: ${event.message}\n`
+      const message = `${event.dateTime}\n[${event.user}]: ${event.message}`
 
       if (fileName != null) {
         appendFileSync(fileName, message + "\n", "utf8");
@@ -244,7 +244,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     }
 
     const currentDate = new Date();
-    writeToChatLog({ dateTime: currentDate.toISOString(), user: player.name, message: message });
+    writeToChatLog({ dateTime: currentDate.toLocaleString("en-GB"), user: player.name, message: message });
   }
 
   formatDateForFilename(d: Date): string {
