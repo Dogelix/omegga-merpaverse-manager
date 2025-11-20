@@ -52,8 +52,32 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     };
 
     this.omegga
+      .on("leave", async (player: OmeggaPlayer) => {
+        const players = await this.store.get("playersInRPChat");
+        if (players.includes(player.id)) {
+          this.store.set("playersInRPChat", players.filter(e => e != player.id));
+        }
+      })
+      .on("chat", async (name: string, message: string) => {
+        const player = this.omegga.getPlayer(name);
+
+        const players = await this.store.get("playersInRPChat");
+        if (players.includes(player.id)) {
+          this.handleRPChatMessages(player, message);
+        }
+      })
       .on("cmd:dmerp", async (name: string, option: string, ...args) => {
         const player = this.omegga.getPlayer(name);
+
+        if (!authorized(name)) {
+          this.omegga.whisper(player, this.formattedMessage("Unauthorised"));
+          return;
+        }
+
+        if (!cooldown(name)) {
+          this.omegga.whisper(player, this.formattedMessage("Commands on cooldown."));
+          return;
+        }
 
         switch (option) {
           case "h":
@@ -61,7 +85,58 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             break;
           case "aetherion":
           case "aeth":
-            console.log(args);
+            try {
+              const value = Number.parseInt(args[0]);
+              if (Number.isNaN(value)) {
+                this.omegga.whisper(player, this.formattedMessage("amount MUST be a number"));
+                return;
+              }
+
+              this.cmdAetherion(player, value);
+            }
+            catch (e) {
+              console.error(e);
+            }
+            break;
+          case "rp":
+            try {
+              const joinOption = args[0];
+              this.cmdHandleChat(player, joinOption);
+            }
+            catch (e) {
+              console.error(e);
+            }
+            break;
+          case "s":
+          case "stat":
+            try {
+              const size = args[0];
+              const av = Number.parseInt(args[1]);
+              const ap = Number.parseInt(args[2]);
+
+              if (Number.isNaN(av) || Number.isNaN(ap)) {
+                this.omegga.whisper(player, this.formattedMessage("AV or AP was not a <b>WHOLE</b> number."));
+              }
+
+              this.cmdStatBrick(player, size, av, ap);
+            }
+            catch (e) {
+              console.error(e);
+            }
+            break;
+          case "c":
+          case "combat":
+            try {
+              const av = Number.parseInt(args[0]);
+              const ap = Number.parseInt(args[1]);
+
+              if (Number.isNaN(av) || Number.isNaN(ap)) {
+                this.omegga.whisper(player, this.formattedMessage("AV or AP was not a <b>WHOLE</b> number."));
+              }
+              this.cmdCombatRoll(player, av, ap);
+            } catch (ex) {
+              console.error("An eror occured in dmerp:combat", ex);
+            }
             break;
         }
       })
@@ -83,99 +158,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           this.omegga.broadcast(rpChatFormat(player, OMEGGA_UTIL.chat.parseLinks(OMEGGA_UTIL.chat.sanitize(contents.join(" ")))));
         } else {
           this.omegga.whisper(player, this.formattedMessage("Not in RP Chat"));
-        }
-      })
-      .on("chatcmd:dmerp-aetherion", (name: string, amount: string) => {
-        const player = this.omegga.getPlayer(name);
-        if (!player
-          .getRoles()
-          .some(role => ["GM"].includes(role))) {
-          this.omegga.whisper(player, this.formattedMessage("Unauthorised"));
-          return;
-        }
-
-        if (!cooldown(name)) {
-          this.omegga.whisper(player, this.formattedMessage("Commands on cooldown."));
-          return;
-        }
-
-        try {
-          this.omegga.whisper(player, this.formattedMessage("Generating Deposit Locations"));
-          const amountParsed = parseInt(amount);
-
-          if (Number.isNaN(amountParsed)) {
-            this.omegga.whisper(player, this.formattedMessage("amount MUST be a number"));
-            return;
-          }
-
-          this.cmdAetherion(player, amountParsed);
-        } catch (e) {
-          console.error("An error occured in dmerp-aetherion", e);
-        }
-      })
-      .on("chatcmd:dmerp-rp", (name: string, option: string) => {
-        const player = this.omegga.getPlayer(name);
-        if (!authorized(name)) {
-          this.omegga.whisper(player, this.formattedMessage("Unauthorised"));
-          return;
-        }
-
-        if (!cooldown(name)) {
-          this.omegga.whisper(player, this.formattedMessage("Commands on cooldown."));
-          return;
-        }
-
-        this.cmdHandleChat(player, option);
-      })
-      // Statistic Brick
-      .on("chatcmd:dmerp-stat", (name: string, size: string, av: string, ap: string) => {
-        const player = this.omegga.getPlayer(name);
-        if (!authorized(name)) {
-          this.omegga.whisper(player, this.formattedMessage("Unauthorised"));
-          return;
-        }
-
-        if (!cooldown(name)) {
-          this.omegga.whisper(player, this.formattedMessage("Commands on cooldown."));
-          return;
-        }
-
-        try {
-          this.omegga.whisper(player, this.formattedMessage("Generating Statistics Brick"));
-          const avNo = parseInt(av);
-          const apNo = parseInt(ap);
-
-          if (Number.isNaN(avNo) || Number.isNaN(apNo)) {
-            this.omegga.whisper(player, this.formattedMessage("AV or AP was not a <b>WHOLE</b> number."));
-          }
-          this.cmdStatBrick(player, size, avNo, apNo);
-        } catch (ex) {
-          console.error("An eror occured in dmerp:stat", ex);
-        }
-      })
-      // Combat roll
-      .on("chatcmd:dmerp-combat", (name: string, av: string, ap: string) => {
-        const player = this.omegga.getPlayer(name);
-        if (!authorized(name)) {
-          this.omegga.whisper(player, this.formattedMessage("Unauthorised"));
-          return;
-        }
-
-        if (!cooldown(name)) {
-          this.omegga.whisper(player, this.formattedMessage("Commands on cooldown."));
-          return;
-        }
-
-        try {
-          const avNo = parseInt(av);
-          const apNo = parseInt(ap);
-
-          if (Number.isNaN(avNo) || Number.isNaN(apNo)) {
-            this.omegga.whisper(player, this.formattedMessage("AV or AP was not a <b>WHOLE</b> number."));
-          }
-          this.cmdCombatRoll(player, avNo, apNo);
-        } catch (ex) {
-          console.error("An eror occured in dmerp:combat", ex);
         }
       });
 
@@ -244,32 +226,25 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   }
 
   async handleRPChatMessages(player: OmeggaPlayer, message: string) {
-    const players = await this.store.get("playersInRPChat");
-
-
-
-    const writeToChatLog = async (event: object) => {
+    const writeToChatLog = async (event: Record<string, string>) => {
       const fileName = await this.store.get("currentFileForRPChat");
 
+      const message = `${event.dateTime}\n[${event.user}]: ${event.message}\n`
+
       if (fileName != null) {
-        appendFileSync(fileName, JSON.stringify(event) + "\n", "utf8");
+        appendFileSync(fileName, message + "\n", "utf8");
       }
       else {
         const currentDate = new Date();
-        const newFileName = `RPChatLog-${this.formatDateForFilename(currentDate)}.json`;
+        const newFileName = `RPChatLog-${this.formatDateForFilename(currentDate)}.md`;
         this.store.set("currentFileForRPChat", newFileName);
 
-        writeFileSync(newFileName, "[\n" + JSON.stringify(event) + ",\n", "utf8");
+        writeFileSync(newFileName, message, "utf8");
       }
-
     }
 
     const currentDate = new Date();
     writeToChatLog({ dateTime: currentDate.toISOString(), user: player.name, message: message });
-    console.log("RP Chat:", player.name, message);
-    players.map((p) => {
-      this.omegga.whisper(p.name, rpChatFormat(player, message));
-    });
   }
 
   formatDateForFilename(d: Date): string {
@@ -287,28 +262,17 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
   async cmdHelp(player: OmeggaPlayer) {
     const commandsList = [
-      `<color="#ffee00ff">/dmc message</>`,
-      `Send a message in the RP chat, if you have joined.`,
-      `<color="#ffee00ff">!dmerp-h</>`,
-      `You have just used it.`,
-      `<color="#ffee00ff">!dmerp-aetherion number</>`,
-      `GM's only`,
-      `<color="#ffee00ff">!dmerp-rp option</>`,
-      `Allows you to join or leave the RP Chat`,
-      `Options:`,
-      `• join, JOIN, j, J`,
-      `• leave, LEAVE, l, L`,
-      `• info, INFO, i, I`,
-      `• clear, CLEAR, c, C (GM Only)`,
-      `<color="#ffee00ff">!dmerp-stat size av ap</>`,
-      `Generates a statistics brick of your selected size. The colour is the one selected in you painter but with the glow material.`,
-      `• size: large/l, medium/m, small/s`,
-      `• av: 0-8`,
-      `• ap: 0-8`,
-      `<color="#ffee00ff">!dmerp-combat av ap</>`,
-      `Makes a combat roll. The person whom did the command is the attacker.`,
-      `• av: 0-8`,
-      `• ap: 0-8`,
+      `<color="#ffee00ff">/dmerp option args</>`,
+      `> <color="#ff7300ff">option: h</>  <color="#00b7ffff">args: </>`,
+      `> > Returns this help list`,
+      `> <color="#ff7300ff">option: rp</>  <color="#00b7ffff">args: ('join/j','leave/l' or 'info/i')</>`,
+      `> > Allows you to join the RP mode where all your chat messages will be logged unless you use <b>/ooc message</>`,
+      `> <color="#ff7300ff">option: stat</>  <color="#00b7ffff">args: ('large/l','medium/m' or 'small/s') (av) (ap)</>`,
+      `> > Creates a glowing stat brick of your desired size with the AV/AP values applied. Just place.`,
+      `> <color="#ff7300ff">option: combat</>  <color="#00b7ffff">args: (av) (ap)</>`,
+      `> > Makes a combat roll, as if you are attacking. It then shows the results.`,
+      `<color="#ffee00ff">/ooc message</>`,
+      `> > Stops this message from being logged when you are in rp mode`,
     ];
 
     this.omegga.whisper(player, this.formattedMessage("Command list:"));
@@ -321,36 +285,21 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     let players = await this.store.get("playersInRPChat");
 
     if (["join", "j"].includes(option.toLowerCase())) {
-      const playersIds = players.map(e => e.id);
-
-      if (playersIds.includes(player.id)) {
+      if (players.includes(player.id)) {
         this.omegga.whisper(player, this.formattedMessage("You are already in the RP chat"));
         return;
       }
 
-      players.push(player);
+      players.push(player.id);
       this.store.set("playersInRPChat", players);
       this.omegga.whisper(player, this.formattedMessage(`You have <color="#17ad3f">joined</> the RP Chat.`));
     } else if (["leave", "l"].includes(option.toLowerCase())) {
-      players = players.filter(e => e.id != player.id);
+      players = players.filter(e => e != player.id);
       this.store.set("playersInRPChat", players);
       this.omegga.whisper(player, this.formattedMessage(`You have <color="#ad1313">left</> the RP Chat.`));
-
-      if (players.length <= 0) {
-        try {
-          const fileName = await this.store.get("currentFileForRPChat");
-          appendFileSync(fileName, "]");
-
-        } catch (e) {
-          console.error("Last person left RP chat but file didn't exist.");
-        } finally {
-          this.store.set("currentFileForRPChat", null);
-        }
-      }
     } else if (["info", "i"].includes(option.toLowerCase())) {
       this.omegga.whisper(player, this.formattedMessage("Players currently in RP Chat:"));
-      const playersIds = players.map(e => e.id);
-      playersIds.map((p) => {
+      players.map((p) => {
         const pPlayer = this.omegga.getPlayer(p);
         this.omegga.whisper(player, `<color="${pPlayer.getNameColor()}">${pPlayer.name}</>`);
       });
@@ -444,6 +393,11 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
       const brickSize = this.getBrickSize(size);
 
+      if (brickSize == null) {
+        this.omegga.whisper(player, this.formattedMessage(`The size '${size}' is invalid. Please use 'large/l','medium/m' or 'small/s'`));
+        return;
+      }
+
       const brick: WriteSaveObject = {
         author: {
           id: player.id,
@@ -490,16 +444,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     }
   }
 
-  async stop() {
-    // this.announcementTimeouts.map((timeout) => {
-    //   clearTimeout(timeout);
-    // });
-  }
-
-
   getBrickSize(size: string): { brickName: string, brickSize: Vector } {
     switch (size) {
-      default:
       case "large":
       case "l":
         return {
@@ -518,6 +464,14 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           brickName: "PB_DefaultMicroBrick",
           brickSize: [1, 1, 1]
         }
+      default:
+        return null;
     }
+  }
+
+  async stop() {
+    // this.announcementTimeouts.map((timeout) => {
+    //   clearTimeout(timeout);
+    // });
   }
 }

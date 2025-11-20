@@ -29,79 +29,16 @@
   },
   "commands": [
     {
-      "name": "/dmc",
-      "description": "send rp chat message",
-      "example": "/dmc Steve decides to hit something",
+      "name": "/ooc",
+      "description": "send ooc rp chat message",
+      "example": "/ooc Steve decides to hit something",
       "args": []
     },
     {
-      "name": "!dmerp-h",
-      "description": "A help function to list commands.",
-      "example": "!dmerp-h",
+      "name": "/dmerp",
+      "description": "core command",
+      "example": "/dmerp rp j",
       "args": [      ]
-    },
-    {
-      "name": "!dmerp-aetherion",
-      "description": "Generate a location and size for an Aetherion deposit",
-      "example": "!dmerp-aetherion 1",
-      "args": [
-        {
-          "name": "amount",
-          "description": "How many location and size combinations to generate.",
-          "required": true
-        }
-      ]
-    },
-    {
-      "name": "!dmerp-rp",
-      "description": "Generate a statistics brick for use with your units.",
-      "example": "!dmerp-stat join",
-      "args": [
-        {
-          "name": "option",
-          "description": "Option to join or leave RP Chat (join, j, leave, l)",
-          "required": true
-        }
-      ]
-    },
-    {
-      "name": "!dmerp-stat",
-      "description": "Generate a statistics brick for use with your units.",
-      "example": "!dmerp-stat micro 1 1",
-      "args": [
-        {
-          "name": "size",
-          "description": "Size of the stat brick",
-          "required": true
-        },
-        {
-          "name": "av",
-          "description": "Armour Value",
-          "required": true
-        },
-        {
-          "name": "ap",
-          "description": "Armour Penetration",
-          "required": true
-        }
-      ]
-    },
-    {
-      "name": "!dmerp-combat",
-      "description": "Generate a statistics brick for use with your units.",
-      "example": "!dmerp-stat 1 1",
-      "args": [
-        {
-          "name": "av",
-          "description": "Armour Value",
-          "required": true
-        },
-        {
-          "name": "ap",
-          "description": "Armour Penetration",
-          "required": true
-        }
-      ]
     }
   ]
 }
