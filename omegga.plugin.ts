@@ -12,7 +12,7 @@ type Config = {
 
 
 type Storage = {
-  playersInRPChat: OmeggaPlayer[];
+  playersInRPChat: string[];
   currentFileForRPChat?: string | null;
 };
 
@@ -52,7 +52,20 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     };
 
     this.omegga
-      .on("cmd:dmc", async (name: string, ...contents) => {
+      .on("cmd:dmerp", async (name: string, option: string, ...args) => {
+        const player = this.omegga.getPlayer(name);
+
+        switch (option) {
+          case "h":
+            this.cmdHelp(player);
+            break;
+          case "aetherion":
+          case "aeth":
+            console.log(args);
+            break;
+        }
+      })
+      .on("cmd:ooc", async (name: string, ...contents) => {
         const player = this.omegga.getPlayer(name);
 
         if (!authorized(name)) {
@@ -61,27 +74,16 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
 
         let players = await this.store.get("playersInRPChat");
-        const playersIds = players.map(e => e.id);
-        if (playersIds.includes(player.id)) {
-          const content = OMEGGA_UTIL.chat.parseLinks(OMEGGA_UTIL.chat.sanitize(contents.join(" ")));
-          this.handleRPChatMessages(player, content);
+        if (players.includes(player.id)) {
+          const rpChatFormat = (sendingPlayer: OmeggaPlayer, msg: string) => {
+            const sendingPlayerColour = sendingPlayer.getNameColor();
+            return `[<b><color="#1c62d4">OOC</></>] <color="${sendingPlayerColour}">${sendingPlayer.name}</>: ${msg}`;
+          }
+
+          this.omegga.broadcast(rpChatFormat(player, OMEGGA_UTIL.chat.parseLinks(OMEGGA_UTIL.chat.sanitize(contents.join(" ")))));
         } else {
           this.omegga.whisper(player, this.formattedMessage("Not in RP Chat"));
         }
-      })
-      .on("chatcmd:dmerp-h", (name: string) => {
-        const player = this.omegga.getPlayer(name);
-        if (!authorized(name)) {
-          this.omegga.whisper(player, this.formattedMessage("Unauthorised"));
-          return;
-        }
-
-        if (!cooldown(name)) {
-          this.omegga.whisper(player, this.formattedMessage("Commands on cooldown."));
-          return;
-        }
-
-        this.cmdHelp(player);
       })
       .on("chatcmd:dmerp-aetherion", (name: string, amount: string) => {
         const player = this.omegga.getPlayer(name);
@@ -177,7 +179,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
       });
 
-    return { registeredCommands: ['dmc'] };
+    return { registeredCommands: ['ooc', "dmerp"] };
   }
 
   cmdAetherion(player: OmeggaPlayer, amount: number) {
@@ -244,10 +246,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   async handleRPChatMessages(player: OmeggaPlayer, message: string) {
     const players = await this.store.get("playersInRPChat");
 
-    const rpChatFormat = (sendingPlayer: OmeggaPlayer, msg: string) => {
-      const sendingPlayerColour = sendingPlayer.getNameColor();
-      return `[<b><color="#1c62d4">RP Chat</></>] <color="${sendingPlayerColour}">${sendingPlayer.name}</>: ${msg}`;
-    }
+
 
     const writeToChatLog = async (event: object) => {
       const fileName = await this.store.get("currentFileForRPChat");
