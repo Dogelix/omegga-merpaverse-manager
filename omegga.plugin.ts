@@ -56,6 +56,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         const players = await this.store.get("playersInRPChat");
         if (players.includes(player.id)) {
           this.store.set("playersInRPChat", players.filter(e => e != player.id));
+
+          if (players.length < 1){
+            this.store.set("currentFileForRPChat", null);
+          }
         }
       })
       .on("chat", async (name: string, message: string) => {
