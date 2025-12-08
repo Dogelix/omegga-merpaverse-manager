@@ -243,7 +243,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       currentMessages.push(message);
       this.store.set("messagesToSendViaWebhook", currentMessages);
 
-      if(currentMessages.length >= 10){
+      if(currentMessages.length >= 10 && (await this.config.rpChatLogWebhookUrl) != null){
         await this.sendChatLogsToDiscord(currentMessages);
         this.store.set("messagesToSendViaWebhook", []);
       }
