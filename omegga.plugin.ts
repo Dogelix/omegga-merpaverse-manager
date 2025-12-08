@@ -245,10 +245,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       currentMessages.push(message);
       this.store.set("messagesToSendViaWebhook", currentMessages);
 
-      if (currentMessages.length >= 1 && this.config.rpChatLogWebhookUrl != null) {
-        await this.sendChatLogsToDiscord(currentMessages);
-        this.store.set("messagesToSendViaWebhook", []);
-      }
+      // if (currentMessages.length >= 1 && this.config.rpChatLogWebhookUrl != null) {
+      //   await this.sendChatLogsToDiscord(currentMessages);
+      //   this.store.set("messagesToSendViaWebhook", []);
+      // }
 
       if (fileName != null) {
         appendFileSync(fileName, message + "\n", "utf8");
@@ -502,7 +502,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     const data = JSON.stringify({
       content: messages
     });
-    
+
     const url = new URL("https://discord.com/api/webhooks/1447548158686265395/gl8Hhj4xN80ohlAqEzk6yawxc4uGaeIGfl0GCJ8gjFjjHPpoDFaX41_ikaiHklVYKjVu");
 
     const options: https.RequestOptions = {
