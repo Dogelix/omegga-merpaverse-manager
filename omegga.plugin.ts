@@ -1,7 +1,7 @@
 import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer, WriteSaveObject, Vector } from 'omegga';
 import CooldownProvider from './util.cooldown.js';
 import { appendFileSync, writeFileSync } from 'node:fs';
-import  fetch from "node-fetch";
+import https from "https";
 
 // plugin config and storage
 type Config = {
@@ -244,7 +244,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       currentMessages.push(message);
       this.store.set("messagesToSendViaWebhook", currentMessages);
 
-      if(currentMessages.length >= 10 && (await this.config.rpChatLogWebhookUrl) != null){
+      if (currentMessages.length >= 10 && (await this.config.rpChatLogWebhookUrl) != null) {
         await this.sendChatLogsToDiscord(currentMessages);
         this.store.set("messagesToSendViaWebhook", []);
       }
@@ -496,21 +496,41 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   }
 
   async sendChatLogsToDiscord(messages: string[]) {
-    const data = {
+    const data = JSON.stringify({
       content: messages
-    };
-
-    const res = await fetch(this.config.rpChatLogWebhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        content: data,
-      }),
     });
 
-    if (!res.ok) {
-      console.error("Discord webhook error:", res.status, await res.text());
-    }
+    const url = new URL(this.config.rpChatLogWebhookUrl);
+
+    const options: https.RequestOptions = {
+      hostname: url.hostname,
+      path: url.pathname + url.search,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(data),
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let body = "";
+
+      res.on("data", (chunk) => (body += chunk));
+      res.on("end", () => {
+        if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
+          console.error("Discord error:", res.statusCode, body);
+        } else {
+          console.log("Message sent:", body);
+        }
+      });
+    });
+
+    req.on("error", (err) => {
+      console.error("Request error:", err);
+    });
+
+    req.write(data);
+    req.end();
   }
 
   async stop() {

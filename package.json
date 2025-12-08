@@ -10,9 +10,6 @@
   },
   "author": "Dogelix",
   "license": "MIT",
-  "dependencies": {
-    "node-fetch": "^2.7.0"
-  },
   "devDependencies": {
     "@eslint/js": "^9.31.0",
     "@stylistic/eslint-plugin": "^5.2.2",
