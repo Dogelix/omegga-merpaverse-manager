@@ -58,6 +58,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
     this.omegga
       .on("leave", async (player: OmeggaPlayer) => {
+        console.log(player.name + "has left");
         const players = await this.store.get("playersInRPChat");
         if (players.includes(player.id)) {
           this.store.set("playersInRPChat", players.filter(e => e != player.id));
