@@ -25,6 +25,11 @@
       "description": "How long before users can re-run the command (seconds)",
       "type": "number",
       "default": 1
+    },
+    "rpChatLogWebhookUrl": {
+      "description": "The Webhook URL to send RP message to discord",
+      "type": "string",
+      "default": null
     }
   },
   "commands": [
