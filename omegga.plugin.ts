@@ -30,6 +30,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     this.config = config;
     this.store = store;
 
+    console.log(store, config);
+
     this.store.set("playersInRPChat", []);
     this.store.set("messagesToSendViaWebhook", []);
   }
@@ -499,6 +501,11 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     const data = JSON.stringify({
       content: messages
     });
+
+    if(this.config.rpChatLogWebhookUrl == null){
+      console.warn(`this.config.rpChatLogWebhookUrl == ${this.config.rpChatLogWebhookUrl}`);
+      return;
+    }
 
     const url = new URL(this.config.rpChatLogWebhookUrl);
 
