@@ -8,11 +8,13 @@ type Config = {
   'authorized-users': { id: string; name: string }[];
   'authorized-roles': string[];
   cooldown: number;
+  rpChatLogWebhookUrl?: string | null;
 };
 
 
 type Storage = {
   playersInRPChat: string[];
+  messagesToSendViaWebhook?: string[];
   currentFileForRPChat?: string | null;
 };
 
@@ -27,7 +29,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     this.config = config;
     this.store = store;
 
-    store.set("playersInRPChat", []);
+    this.store.set("playersInRPChat", []);
+    this.store.set("messagesToSendViaWebhook", []);
   }
 
   formattedMessage(msg: string) {
@@ -57,7 +60,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         if (players.includes(player.id)) {
           this.store.set("playersInRPChat", players.filter(e => e != player.id));
 
-          if (players.length < 1){
+          if (players.length < 1) {
             console.log("Clearing RP File Name");
             this.store.set("currentFileForRPChat", null);
           }
@@ -236,6 +239,15 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
       const message = `${event.dateTime}\n[${event.user}]: ${event.message}`
 
+      let currentMessages = await this.store.get("messagesToSendViaWebhook");
+      currentMessages.push(message);
+      this.store.set("messagesToSendViaWebhook", currentMessages);
+
+      if(currentMessages.length >= 10){
+        await this.sendChatLogsToDiscord(currentMessages);
+        this.store.set("messagesToSendViaWebhook", []);
+      }
+
       if (fileName != null) {
         appendFileSync(fileName, message + "\n", "utf8");
       }
@@ -299,11 +311,17 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       console.log(`Player ${player.name} has joined RP Chat.`);
       this.store.set("playersInRPChat", players);
       this.omegga.whisper(player, this.formattedMessage(`You have <color="#17ad3f">joined</> the RP Chat.`));
+
     } else if (["leave", "l"].includes(option.toLowerCase())) {
       players = players.filter(e => e != player.id);
       this.store.set("playersInRPChat", players);
       console.log(`Player ${player.name} has left RP Chat.`);
       this.omegga.whisper(player, this.formattedMessage(`You have <color="#ad1313">left</> the RP Chat.`));
+
+      if (players.length < 1) {
+        console.log("Clearing RP File Name");
+        this.store.set("currentFileForRPChat", null);
+      }
     } else if (["info", "i"].includes(option.toLowerCase())) {
       this.omegga.whisper(player, this.formattedMessage("Players currently in RP Chat:"));
       players.map((p) => {
@@ -473,6 +491,24 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
       default:
         return null;
+    }
+  }
+
+  async sendChatLogsToDiscord(messages: string[]) {
+    const data = {
+      content: messages
+    };
+
+    const res = await fetch(this.config.rpChatLogWebhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: data,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("Discord webhook error:", res.status, await res.text());
     }
   }
 
