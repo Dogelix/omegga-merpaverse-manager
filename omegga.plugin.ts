@@ -30,10 +30,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     this.config = config;
     this.store = store;
 
-    console.log(store, config);
-
-    this.store.set("playersInRPChat", []);
-    this.store.set("messagesToSendViaWebhook", []);
+    console.log("MERPaverse Config:", config);
   }
 
   formattedMessage(msg: string) {
@@ -41,6 +38,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   }
 
   async init() {
+    this.store.set("playersInRPChat", []);
+    this.store.set("messagesToSendViaWebhook", []);
 
     const duration = Math.max(this.config.cooldown * 1000, 0);
     const cooldown = duration <= 0 ? () => true : CooldownProvider(duration);
