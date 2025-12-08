@@ -1,6 +1,7 @@
 import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer, WriteSaveObject, Vector } from 'omegga';
 import CooldownProvider from './util.cooldown.js';
 import { appendFileSync, writeFileSync } from 'node:fs';
+import  fetch from "node-fetch";
 
 // plugin config and storage
 type Config = {
