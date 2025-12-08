@@ -58,6 +58,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           this.store.set("playersInRPChat", players.filter(e => e != player.id));
 
           if (players.length < 1){
+            console.log("Clearing RP File Name");
             this.store.set("currentFileForRPChat", null);
           }
         }
@@ -295,11 +296,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       }
 
       players.push(player.id);
+      console.log(`Player ${player.name} has joined RP Chat.`);
       this.store.set("playersInRPChat", players);
       this.omegga.whisper(player, this.formattedMessage(`You have <color="#17ad3f">joined</> the RP Chat.`));
     } else if (["leave", "l"].includes(option.toLowerCase())) {
       players = players.filter(e => e != player.id);
       this.store.set("playersInRPChat", players);
+      console.log(`Player ${player.name} has left RP Chat.`);
       this.omegga.whisper(player, this.formattedMessage(`You have <color="#ad1313">left</> the RP Chat.`));
     } else if (["info", "i"].includes(option.toLowerCase())) {
       this.omegga.whisper(player, this.formattedMessage("Players currently in RP Chat:"));
