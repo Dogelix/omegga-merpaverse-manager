@@ -498,12 +498,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
   async sendChatLogsToDiscord(messages: string[]) {
     console.log("sendChatLogsToDiscord");
+    console.warn(`this.config.rpChatLogWebhookUrl == ${this.config.rpChatLogWebhookUrl}`);
     const data = JSON.stringify({
       content: messages
     });
 
-    if(this.config.rpChatLogWebhookUrl == null){
-      console.warn(`this.config.rpChatLogWebhookUrl == ${this.config.rpChatLogWebhookUrl}`);
+    if (this.config.rpChatLogWebhookUrl == null) {
       return;
     }
 
