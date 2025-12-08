@@ -497,6 +497,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   }
 
   async sendChatLogsToDiscord(messages: string[]) {
+    console.log("sendChatLogsToDiscord");
     const data = JSON.stringify({
       content: messages
     });
