@@ -58,7 +58,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
     this.omegga
       .on("leave", async (player: OmeggaPlayer) => {
-        console.log(player.name + "has left");
+        console.log(player.name + " has left");
         const players = await this.store.get("playersInRPChat");
         if (players.includes(player.id)) {
           this.store.set("playersInRPChat", players.filter(e => e != player.id));
@@ -303,6 +303,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
   async cmdHandleChat(player: OmeggaPlayer, option: string) {
     let players = await this.store.get("playersInRPChat");
+
+    if (option === null || option === undefined || option === "") {
+      this.omegga.whisper(player, this.formattedMessage("Option <b>required</> for RP Command"));
+      console.warn(player.name + " tried to do the RP command without an option.");
+      return;
+    }
 
     if (["join", "j"].includes(option.toLowerCase())) {
       if (players.includes(player.id)) {
