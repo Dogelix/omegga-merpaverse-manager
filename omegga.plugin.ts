@@ -395,6 +395,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   }
 
   async cmdStatBrick(player: OmeggaPlayer, size: string, av: number, ap: number) {
+    this.omegga.whisper(player, this.formattedMessage("Deprecated with EA2"));
+    return;
     try {
       if (av < 0) {
         av = 0;
