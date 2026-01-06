@@ -25,6 +25,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   config: PC<Config>;
   store: PS<Storage>;
 
+  merpaverseColour : string = "#1c62d4";
+
   constructor(omegga: OL, config: PC<Config>, store: PS<Storage>) {
     this.omegga = omegga;
     this.config = config;
@@ -34,7 +36,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   }
 
   formattedMessage(msg: string) {
-    return `[<b><color="#1c62d4">MERPaverse Manager</></>] ${msg}`;
+    return `[<b><color="${this.merpaverseColour}">MERPaverse Manager</></>] ${msg}`;
   }
 
   async init() {
@@ -163,7 +165,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         if (players.includes(player.id)) {
           const rpChatFormat = (sendingPlayer: OmeggaPlayer, msg: string) => {
             const sendingPlayerColour = sendingPlayer.getNameColor();
-            return `[<b><color="#1c62d4">OOC</></>] <color="${sendingPlayerColour}">${sendingPlayer.name}</>: ${msg}`;
+            return `[<b><color="${this.merpaverseColour}">OOC</></>] <color="${sendingPlayerColour}">${sendingPlayer.name}</>: ${msg}`;
           }
 
           this.omegga.broadcast(rpChatFormat(player, OMEGGA_UTIL.chat.parseLinks(OMEGGA_UTIL.chat.sanitize(contents.join(" ")))));
@@ -261,6 +263,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
         writeFileSync(newFileName, message, "utf8");
       }
+
+      this.omegga.middlePrint(player,`<size="8"><color="${this.merpaverseColour}">MERPaverse</> Chat Message Logged</>`)
     }
 
     const currentDate = new Date();
