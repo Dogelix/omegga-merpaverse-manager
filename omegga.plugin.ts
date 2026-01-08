@@ -25,7 +25,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   config: PC<Config>;
   store: PS<Storage>;
 
-  merpaverseColour : string = "#1c62d4";
+  merpaverseColour: string = "#1c62d4";
 
   constructor(omegga: OL, config: PC<Config>, store: PS<Storage>) {
     this.omegga = omegga;
@@ -79,6 +79,22 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           this.handleRPChatMessages(player, message);
         }
       })
+      .on("cmd:rp", async (name: string, ...args) => {
+        const player = this.omegga.getPlayer(name);
+
+        if (!authorized(name)) {
+          this.omegga.whisper(player, this.formattedMessage("Unauthorised"));
+          return;
+        }
+
+        if (!cooldown(name)) {
+          this.omegga.whisper(player, this.formattedMessage("Commands on cooldown."));
+          return;
+        }
+        const message = OMEGGA_UTIL.chat.parseLinks(OMEGGA_UTIL.chat.sanitize(args.join(" ")));
+        this.omegga.broadcast(`<color="${player.getNameColor()}">${player.name}</> (<b>RP Command</>) ${message}`);
+        this.handleRPChatMessages(player, message);
+      })
       .on("cmd:dmerp", async (name: string, option: string, ...args) => {
         const player = this.omegga.getPlayer(name);
 
@@ -122,20 +138,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             break;
           case "s":
           case "stat":
-            try {
-              const size = args[0];
-              const av = Number.parseInt(args[1]);
-              const ap = Number.parseInt(args[2]);
-
-              if (Number.isNaN(av) || Number.isNaN(ap)) {
-                this.omegga.whisper(player, this.formattedMessage("AV or AP was not a <b>WHOLE</b> number."));
-              }
-
-              this.cmdStatBrick(player, size, av, ap);
-            }
-            catch (e) {
-              console.error(e);
-            }
+            this.omegga.whisper(player, this.formattedMessage("Stat command deprecated."));
             break;
           case "c":
           case "combat":
@@ -174,7 +177,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
       });
 
-    return { registeredCommands: ['ooc', "dmerp"] };
+    return { registeredCommands: ['ooc', "dmerp", "rp"] };
   }
 
   cmdAetherion(player: OmeggaPlayer, amount: number) {
@@ -248,11 +251,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       currentMessages.push(message);
       this.store.set("messagesToSendViaWebhook", currentMessages);
 
-      // if (currentMessages.length >= 1 && this.config.rpChatLogWebhookUrl != null) {
-      //   await this.sendChatLogsToDiscord(currentMessages);
-      //   this.store.set("messagesToSendViaWebhook", []);
-      // }
-
       if (fileName != null) {
         appendFileSync(fileName, message + "\n", "utf8");
       }
@@ -264,7 +262,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         writeFileSync(newFileName, message, "utf8");
       }
 
-      this.omegga.middlePrint(player,`<size="8"><color="${this.merpaverseColour}">MERPaverse</> Chat Message Logged</>`)
+      this.omegga.middlePrint(player, `<size="8"><color="${this.merpaverseColour}">MERPaverse</> Chat Message Logged</>`)
     }
 
     const currentDate = new Date();
@@ -398,120 +396,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
-  async cmdStatBrick(player: OmeggaPlayer, size: string, av: number, ap: number) {
-    this.omegga.whisper(player, this.formattedMessage("Deprecated with EA2"));
-    return;
-    try {
-      if (av < 0) {
-        av = 0;
-      }
-      if (ap < 0) {
-        av = 0;
-      }
-      if (av > 8) {
-        av = 8;
-      }
-      if (ap > 8) {
-        av = 8;
-      }
-
-      const interactLabel = {
-        Component_Interact: {
-          InteractSound: 'OBA_UI_Goal_Tune_Cue',
-          Message: '<b>Stats</b>:\r\n' +
-            `<color="#dbc60b">AV</color> : ${av}\r\n` +
-            `<color="#de6b00">AP</color> : ${ap}`,
-          ConsoleTag: '',
-          bAllowNearbyInteraction: true,
-          bHiddenInteraction: false,
-          PromptCustomLabel: 'Statistics'
-        }
-      };
-
-      let paint = await player.getPaint();
-      paint.material = "BMC_Glow";
-
-      const brickSize = this.getBrickSize(size);
-
-      if (brickSize == null) {
-        this.omegga.whisper(player, this.formattedMessage(`The size '${size}' is invalid. Please use 'large/l','medium/m' or 'small/s'`));
-        return;
-      }
-
-      const brick: WriteSaveObject = {
-        author: {
-          id: player.id,
-          name: player.name,
-        },
-        brick_assets: [
-          brickSize.brickName
-        ],
-        materials: [
-          "BMC_Glow"
-        ],
-        components: {
-          Component_Interact: {
-            version: 1,
-            brick_indices: [0],
-            properties: {
-              InteractSound: 'Object',
-              Message: 'String',
-              ConsoleTag: 'String',
-              bAllowNearbyInteraction: 'Boolean',
-              bHiddenInteraction: 'Boolean',
-              PromptCustomLabel: 'String'
-            }
-          }
-        },
-        bricks: [
-          {
-            material_index: 0,
-            asset_name_index: 0,
-            rotation: 0,
-            position: [0, 0, 0],
-            size: brickSize.brickSize,
-            color: paint.color,
-            components: interactLabel
-          }
-        ],
-      };
-
-      await this.omegga.loadSaveDataOnPlayer(brick, player);
-    } catch (e) {
-      this.omegga.whisper(player, this.formattedMessage(`Unable to create statistics brick.`));
-
-      console.error("MERPaverse", e);
-    }
-  }
-
-  getBrickSize(size: string): { brickName: string, brickSize: Vector } {
-    switch (size) {
-      case "large":
-      case "l":
-        return {
-          brickName: "PB_DefaultBrick",
-          brickSize: [5, 5, 6]
-        }
-      case "medium":
-      case "m":
-        return {
-          brickName: "B_1x1F_Round",
-          brickSize: [5, 5, 3]
-        }
-      case "small":
-      case "s":
-        return {
-          brickName: "PB_DefaultMicroBrick",
-          brickSize: [1, 1, 1]
-        }
-      default:
-        return null;
-    }
-  }
-
   async sendChatLogsToDiscord(messages: string[]) {
-    console.log("sendChatLogsToDiscord");
-    console.warn(`this.config.rpChatLogWebhookUrl == ${this.config.rpChatLogWebhookUrl}`);
     const data = JSON.stringify({
       content: messages
     });
