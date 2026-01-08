@@ -293,6 +293,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       `> > Creates a glowing stat brick of your desired size with the AV/AP values applied. Just place.`,
       `> <color="#ff7300ff">option: combat</>  <color="#00b7ffff">args: (av) (ap)</>`,
       `> > Makes a combat roll, as if you are attacking. It then shows the results.`,
+      `<color="#ffee00ff">/rp message</>`,
+      `> > Directly logs to the RP chat log without joining.`,
       `<color="#ffee00ff">/ooc message</>`,
       `> > Stops this message from being logged when you are in rp mode`,
     ];
