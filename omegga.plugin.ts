@@ -79,7 +79,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           this.handleRPChatMessages(player, message);
         }
       })
-      .on("cmd:rp", async (name: string, ...args) => {
+      .on("cmd:me", async (name: string, ...args) => {
         const player = this.omegga.getPlayer(name);
 
         if (!authorized(name)) {
@@ -177,7 +177,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
       });
 
-    return { registeredCommands: ['ooc', "dmerp", "rp"] };
+    return { registeredCommands: ['ooc', "dmerp", "me"] };
   }
 
   cmdAetherion(player: OmeggaPlayer, amount: number) {
