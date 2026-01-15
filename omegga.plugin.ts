@@ -361,6 +361,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
       players.push(player.id);
       console.log(`Player ${player.name} has joined RP Chat.`);
+      this.updatePlayerRoomPref(player, Rooms.space);
       this.store.set("playersInRPChat", players);
       this.omegga.whisper(player, this.formattedMessage(`You have <color="#17ad3f">joined</> the RP Chat.`));
 
