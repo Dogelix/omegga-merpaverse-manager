@@ -1,8 +1,7 @@
 import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer, WriteSaveObject, Vector } from 'omegga';
 import CooldownProvider from './util.cooldown.js';
-import { appendFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, writeFileSync, readFileSync } from 'node:fs';
 import https from "https";
-import { readFile } from 'node:fs/promises';
 
 // plugin config and storage
 type Config = {
@@ -54,7 +53,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
   async getStoredPlayerRoomPreferences() {
     try {
-      const data = await readFile(PLAYER_PREFS_FILE_PATH, "utf-8");
+      const data = readFileSync(PLAYER_PREFS_FILE_PATH, "utf-8");
       return JSON.parse(data) as playerRoomPreference[];
     } catch (err: any) {
       if (err.code === "ENOENT") {
