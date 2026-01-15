@@ -2,6 +2,7 @@ import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer, WriteSaveObject, Vector } from 
 import CooldownProvider from './util.cooldown.js';
 import { appendFileSync, writeFileSync } from 'node:fs';
 import https from "https";
+import { readFile } from 'node:fs/promises';
 
 // plugin config and storage
 type Config = {
@@ -12,13 +13,25 @@ type Config = {
   rpChatLogWebhookUrl?: string | null;
 };
 
+interface playerRoomPreference {
+  room: Rooms;
+  playerId: string;
+}
 
 type Storage = {
   playersInRPChat: string[];
+  playerRoomPreferences: playerRoomPreference[];
   messagesToSendViaWebhook?: string[];
-  currentFileForRPChat?: string | null;
+  currentFileForSpaceRPChat?: string | null;
+  currentFileForFantasyRPChat?: string | null;
 };
 
+enum Rooms {
+  fantasy,
+  space
+}
+
+const PLAYER_PREFS_FILE_PATH = "playerRoomPreferences.json";
 
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
   omegga: OL;
@@ -39,9 +52,26 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     return `[<b><color="${this.merpaverseColour}">MERPaverse Manager</></>] ${msg}`;
   }
 
+  async getStoredPlayerRoomPreferences() {
+    try {
+      const data = await readFile(PLAYER_PREFS_FILE_PATH, "utf-8");
+      return JSON.parse(data) as playerRoomPreference[];
+    } catch (err: any) {
+      if (err.code === "ENOENT") {
+        return [] as playerRoomPreference[]; // file not found
+      }
+      throw err; // other errors (invalid JSON, permission, etc.)
+    }
+
+  };
+
   async init() {
     this.store.set("playersInRPChat", []);
     this.store.set("messagesToSendViaWebhook", []);
+    this.store.set("playerRoomPreferences", []);
+
+    const playerPrefs = await this.getStoredPlayerRoomPreferences();
+    this.store.set("playerRoomPreferences", playerPrefs);
 
     const duration = Math.max(this.config.cooldown * 1000, 0);
     const cooldown = duration <= 0 ? () => true : CooldownProvider(duration);
@@ -67,7 +97,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
           if (players.length < 1) {
             console.log("Clearing RP File Name");
-            this.store.set("currentFileForRPChat", null);
+            this.store.set("currentFileForSpaceRPChat", null);
+            this.store.set("currentFileForFantasyRPChat", null);
           }
         }
       })
@@ -243,7 +274,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
   async handleRPChatMessages(player: OmeggaPlayer, message: string) {
     const writeToChatLog = async (event: Record<string, string>) => {
-      const fileName = await this.store.get("currentFileForRPChat");
+      const roomPrefs = await this.store.get("playerRoomPreferences");
+      const playerPref = roomPrefs.find(e => e.playerId == player.id);
+
+      const fileName = playerPref.room == Rooms.fantasy ? await this.store.get("currentFileForFantasyRPChat") : await this.store.get("currentFileForSpaceRPChat");
 
       const message = `${event.dateTime}\n[${event.user}]: ${event.message}`
 
@@ -256,8 +290,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       }
       else {
         const currentDate = new Date();
-        const newFileName = `RPChatLog-${this.formatDateForFilename(currentDate)}.md`;
-        this.store.set("currentFileForRPChat", newFileName);
+        const newFileName = `${playerPref.room == Rooms.fantasy ? "FANTASY-" : "SPACE-"}RPChatLog-${this.formatDateForFilename(currentDate)}.md`;
+        if (playerPref.room == Rooms.fantasy) {
+          this.store.set("currentFileForFantasyRPChat", newFileName);
+        } else {
+          this.store.set("currentFileForSpaceRPChat", newFileName);
+        }
 
         writeFileSync(newFileName, message, "utf8");
       }
@@ -289,6 +327,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       `> > Returns this help list`,
       `> <color="#ff7300ff">option: rp</>  <color="#00b7ffff">args: ('join/j','leave/l' or 'info/i')</>`,
       `> > Allows you to join the RP mode where all your chat messages will be logged unless you use <b>/ooc message</>`,
+      `> <color="#ff7300ff">option: rp</>  <color="#00b7ffff">args: ('fantasy/f' or 'space/s')</>`,
+      `> > Allows you to join the RP rooms for better logging.`,
       `> <color="#ff7300ff">option: stat</>  <color="#00b7ffff">args: ('large/l','medium/m' or 'small/s') (av) (ap)</>`,
       `> > Creates a glowing stat brick of your desired size with the AV/AP values applied. Just place.`,
       `> <color="#ff7300ff">option: combat</>  <color="#00b7ffff">args: (av) (ap)</>`,
@@ -333,7 +373,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
       if (players.length < 1) {
         console.log("Clearing RP File Name");
-        this.store.set("currentFileForRPChat", null);
+        this.store.set("currentFileForSpaceRPChat", null);
       }
     } else if (["info", "i"].includes(option.toLowerCase())) {
       this.omegga.whisper(player, this.formattedMessage("Players currently in RP Chat:"));
@@ -345,18 +385,40 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       if (player.getRoles().includes("GM")) {
         this.store.set("playersInRPChat", null);
         try {
-          const fileName = await this.store.get("currentFileForRPChat");
+          const fileName = await this.store.get("currentFileForSpaceRPChat");
           appendFileSync(fileName, "]");
 
         } catch (e) {
           console.error("Last person left RP chat but file didn't exist.");
         } finally {
-          this.store.set("currentFileForRPChat", null);
+          this.store.set("currentFileForSpaceRPChat", null);
         }
       } else {
         this.omegga.whisper(player, this.formattedMessage("Unauthorised"));
       }
+    } else if (["space", "s"].includes(option.toLowerCase())) {
+      this.updatePlayerRoomPref(player, Rooms.space);
+    } else if (["fantasy", "f"].includes(option.toLowerCase())) {
+      this.updatePlayerRoomPref(player, Rooms.fantasy);
     }
+  }
+
+  async updatePlayerRoomPref(player: OmeggaPlayer, room: Rooms) {
+    const roomPrefs = await this.store.get("playerRoomPreferences");
+    const playerPref = roomPrefs.find(e => e.playerId == player.id);
+    if (playerPref === undefined) {
+      const updatedArray = [...roomPrefs, { playerId: player.id, room }];
+      this.store.set("playerRoomPreferences", updatedArray);
+      writeFileSync(PLAYER_PREFS_FILE_PATH, JSON.stringify(updatedArray), "utf-8");
+    } else {
+      playerPref.room = room;
+      let updatedArray = roomPrefs.filter(e => e.playerId != player.id);
+      updatedArray.push(playerPref);
+      this.store.set("playerRoomPreferences", updatedArray);
+      writeFileSync(PLAYER_PREFS_FILE_PATH, JSON.stringify(updatedArray), "utf-8");
+    }
+
+    room == Rooms.fantasy ? this.omegga.whisper(player, this.formattedMessage("You have joined the <b>Fantasy</> room.")) : this.omegga.whisper(player, this.formattedMessage("You have joined the <b>Space</> room."))
   }
 
   async cmdCombatRoll(player: OmeggaPlayer, av: number, ap: number) {
