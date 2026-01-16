@@ -121,8 +121,16 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           this.omegga.whisper(player, this.formattedMessage("Commands on cooldown."));
           return;
         }
+
+        const roomPrefs = await this.store.get("playerRoomPreferences");
+        const playerPref = roomPrefs.find(e => e.playerId == player.id);
+
+        if(playerPref === undefined){
+          await this.updatePlayerRoomPref(player, Rooms.space);
+        }
+
         const message = OMEGGA_UTIL.chat.parseLinks(OMEGGA_UTIL.chat.sanitize(args.join(" ")));
-        this.omegga.broadcast(`<color="${player.getNameColor()}">${player.name}</> (<b>RP Command</>) ${message}`);
+        this.omegga.broadcast(`<b><color="${player.getNameColor()}">${player.name}</></> (<b>RP Command</>) ${message}`);
         this.handleRPChatMessages(player, message);
       })
       .on("cmd:dmerp", async (name: string, option: string, ...args) => {
