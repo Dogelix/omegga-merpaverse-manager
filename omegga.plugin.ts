@@ -54,7 +54,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   async getStoredPlayerRoomPreferences() {
     try {
       const data = readFileSync(PLAYER_PREFS_FILE_PATH, "utf-8");
-      return JSON.parse(data) as playerRoomPreference[];
+      const returnValue = JSON.parse(data) as playerRoomPreference[];
+      console.log("Loaded stored room prefs: ", returnValue);
+      return returnValue;
     } catch (err: any) {
       if (err.code === "ENOENT") {
         return [] as playerRoomPreference[]; // file not found
