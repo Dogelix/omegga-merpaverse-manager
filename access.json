@@ -1,1 +1,1 @@
-[ "fs", "https" ]
+[ "fs", "https", "fetch", "path" ]
