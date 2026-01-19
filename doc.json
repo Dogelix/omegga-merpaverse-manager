@@ -21,6 +21,14 @@
         "Admin"
       ]
     },
+    "admin-roles": {
+      "description": "List of roles who can always use commands",
+      "type": "list",
+      "itemType": "role",
+      "default": [
+        "Admin"
+      ]
+    },
     "cooldown": {
       "description": "How long before users can re-run the command (seconds)",
       "type": "number",

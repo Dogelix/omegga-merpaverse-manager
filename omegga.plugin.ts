@@ -8,6 +8,7 @@ type Config = {
   'only-authorized': boolean;
   'authorized-users': { id: string; name: string }[];
   'authorized-roles': string[];
+  'admin-roles': string[];
   cooldown: number;
   rpChatLogWebhookUrl?: string | null;
 };
@@ -158,6 +159,16 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       );
     };
 
+    const adminRoleAuth = (name: string) => {
+      const player = this.omegga.getPlayer(name);
+      return (
+        player.isHost() ||
+        player
+          .getRoles()
+          .some(role => this.config['admin-roles'].includes(role))
+      );
+    };
+
     this.omegga
       .on("leave", async (player: OmeggaPlayer) => {
         console.log(player.name + " has left");
@@ -219,9 +230,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
         switch (option) {
           case "upload":
-            if (player
-              .getRoles()
-              .some(role => this.config['GM'].includes(role))) {
+            if (!adminRoleAuth(name)) {
               this.omegga.whisper(player, this.formattedMessage("Unauthorised"));
               return;
             }
