@@ -1,6 +1,6 @@
 import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer } from 'omegga';
 import CooldownProvider from './util.cooldown.js';
-import { appendFileSync, writeFileSync, readFileSync, readdirSync, createReadStream } from 'node:fs';
+import fs from 'fs';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
 
@@ -77,7 +77,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
   async getStoredPlayerRoomPreferences() {
     try {
-      const data = readFileSync(PLAYER_PREFS_FILE_PATH, "utf-8");
+      const data = fs.readFileSync(PLAYER_PREFS_FILE_PATH, "utf-8");
       const returnValue = JSON.parse(data) as playerRoomPreference[];
       console.log("Loaded stored room prefs: ", returnValue);
       return returnValue;
@@ -95,7 +95,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     let currentFiles: uploadedLogEntry[] = [];
 
     try {
-      const data = readFileSync(UPLOADED_LOG_LIST, "utf-8");
+      const data = fs.readFileSync(UPLOADED_LOG_LIST, "utf-8");
       currentFiles = JSON.parse(data) as uploadedLogEntry[];
     } catch (err: any) {
       if (err.code !== "ENOENT") {
@@ -106,21 +106,21 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
       this.omegga.whisper(player, this.formattedMessage("Log list not found. Creating."));
 
-      writeFileSync(UPLOADED_LOG_LIST, JSON.stringify(currentFiles), "utf-8");
+      fs.writeFileSync(UPLOADED_LOG_LIST, JSON.stringify(currentFiles), "utf-8");
     }
 
-    const files = readdirSync("./", { withFileTypes: true }).filter(e => !e.isDirectory() && e.name.includes(".md")).map(item => item.name);
+    const files = fs.readdirSync("./", { withFileTypes: true }).filter(e => !e.isDirectory() && e.name.includes(".md")).map(item => item.name);
     const flatUploadedPaths = currentFiles.flatMap(e => e.logName);
     const filesToUpload = files.filter(e => !flatUploadedPaths.includes(e));
 
     filesToUpload.map(async (path) => {
 
       this.omegga.whisper(player, this.formattedMessage("Uploading " + path));
-      const fileBytes = readFileSync(path, "utf-8");
+      const fileBytes = fs.readFileSync(path, "utf-8");
       const formData = new FormData();
       const uploadDate = new Date();
       formData.append("content", `File Uploaded => ${uploadDate.toISOString()}`);
-      formData.append("file", createReadStream(path), path.match(fileRegex)[0]);
+      formData.append("file", fs.createReadStream(path), path.match(fileRegex)[0]);
 
       await fetch("https://discord.com/api/webhooks/1447548158686265395/gl8Hhj4xN80ohlAqEzk6yawxc4uGaeIGfl0GCJ8gjFjjHPpoDFaX41_ikaiHklVYKjVu", {
         headers: formData.getHeaders(),
@@ -135,7 +135,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       });
     });
 
-    writeFileSync(UPLOADED_LOG_LIST, JSON.stringify(currentFiles), "utf-8");
+    fs.writeFileSync(UPLOADED_LOG_LIST, JSON.stringify(currentFiles), "utf-8");
   }
 
   async init() {
@@ -385,7 +385,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       this.store.set("messagesToSendViaWebhook", currentMessages);
 
       if (fileName != null) {
-        appendFileSync(fileName, message + "\n", "utf8");
+        fs.appendFileSync(fileName, message + "\n", "utf8");
       }
       else {
         const currentDate = new Date();
@@ -396,7 +396,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           this.store.set("currentFileForSpaceRPChat", newFileName);
         }
 
-        writeFileSync(newFileName, message, "utf8");
+        fs.writeFileSync(newFileName, message, "utf8");
       }
 
       this.omegga.middlePrint(player, `<size="8"><color="${this.merpaverseColour}">MERPaverse</> Chat Message Logged</>`)
@@ -486,7 +486,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         this.store.set("playersInRPChat", null);
         try {
           const fileName = await this.store.get("currentFileForSpaceRPChat");
-          appendFileSync(fileName, "]");
+          fs.appendFileSync(fileName, "]");
 
         } catch (e) {
           console.error("Last person left RP chat but file didn't exist.");
@@ -509,13 +509,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     if (playerPref === undefined) {
       const updatedArray = [...roomPrefs, { playerId: player.id, room }];
       this.store.set("playerRoomPreferences", updatedArray);
-      writeFileSync(PLAYER_PREFS_FILE_PATH, JSON.stringify(updatedArray), "utf-8");
+      fs.writeFileSync(PLAYER_PREFS_FILE_PATH, JSON.stringify(updatedArray), "utf-8");
     } else {
       playerPref.room = room;
       let updatedArray = roomPrefs.filter(e => e.playerId != player.id);
       updatedArray.push(playerPref);
       this.store.set("playerRoomPreferences", updatedArray);
-      writeFileSync(PLAYER_PREFS_FILE_PATH, JSON.stringify(updatedArray), "utf-8");
+      fs.writeFileSync(PLAYER_PREFS_FILE_PATH, JSON.stringify(updatedArray), "utf-8");
     }
 
     room == Rooms.fantasy ? this.omegga.whisper(player, this.formattedMessage("You have joined the <b>Fantasy</> room.")) : this.omegga.whisper(player, this.formattedMessage("You have joined the <b>Space</> room."))
