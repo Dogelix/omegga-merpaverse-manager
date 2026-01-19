@@ -61,6 +61,18 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     return `[<b><color="${this.merpaverseColour}">MERPaverse Manager</></>] ${msg}`;
   }
 
+  msUntil(hour: number, minute = 0) {
+    const now = new Date();
+    const next = new Date();
+
+    next.setHours(hour, minute, 0, 0);
+    if (next <= now) {
+      next.setDate(next.getDate() + 1);
+    }
+
+    return next.getTime() - now.getTime();
+  }
+
   async getStoredPlayerRoomPreferences() {
     try {
       const data = readFileSync(PLAYER_PREFS_FILE_PATH, "utf-8");
@@ -75,7 +87,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     }
   };
 
-  async uploadLogs() {
+  async uploadLogs(player: OmeggaPlayer) {
+    console.log("Uploading Logs");
+    this.omegga.whisper(player, this.formattedMessage("Uploading RP Logs"));
     let currentFiles: uploadedLogEntry[] = [];
 
     try {
@@ -87,6 +101,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         return;
       }
 
+
+      this.omegga.whisper(player, this.formattedMessage("Log list not found. Creating."));
+
       writeFileSync(UPLOADED_LOG_LIST, JSON.stringify(currentFiles), "utf-8");
     }
 
@@ -95,6 +112,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     const filesToUpload = files.filter(e => !flatUploadedPaths.includes(e));
 
     filesToUpload.map(async (path) => {
+
+      this.omegga.whisper(player, this.formattedMessage("Uploading " + path));
       const fileBytes = readFileSync(path, "utf-8");
       const formData = new FormData();
       const uploadDate = new Date();
@@ -160,6 +179,23 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         if (players.includes(player.id)) {
           this.handleRPChatMessages(player, message);
         }
+      })
+      .on("cmd:uploadLogs", async (name: string, ...args) => {
+        const player = this.omegga.getPlayer(name);
+
+        if (player
+          .getRoles()
+          .some(role => this.config['GM'].includes(role))) {
+          this.omegga.whisper(player, this.formattedMessage("Unauthorised"));
+          return;
+        }
+
+        if (!cooldown(name)) {
+          this.omegga.whisper(player, this.formattedMessage("Commands on cooldown."));
+          return;
+        }
+
+        await this.uploadLogs();
       })
       .on("cmd:me", async (name: string, ...args) => {
         const player = this.omegga.getPlayer(name);
@@ -267,7 +303,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
       });
 
-    return { registeredCommands: ['ooc', "dmerp", "me"] };
+    return { registeredCommands: ['ooc', "dmerp", "me", "uploadLogs"] };
   }
 
   cmdAetherion(player: OmeggaPlayer, amount: number) {
