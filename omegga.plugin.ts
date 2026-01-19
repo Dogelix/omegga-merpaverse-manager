@@ -3,7 +3,6 @@ import CooldownProvider from './util.cooldown.js';
 import { appendFileSync, writeFileSync, readFileSync, readdirSync, createReadStream } from 'node:fs';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
-import axios from 'axios';
 
 // plugin config and storage
 type Config = {
@@ -117,12 +116,17 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     filesToUpload.map(async (path) => {
 
       this.omegga.whisper(player, this.formattedMessage("Uploading " + path));
+      const fileBytes = readFileSync(path, "utf-8");
       const formData = new FormData();
       const uploadDate = new Date();
       formData.append("content", `File Uploaded => ${uploadDate.toISOString()}`);
       formData.append("file", createReadStream(path), path.match(fileRegex)[0]);
 
-      await axios.post("https://discord.com/api/webhooks/1447548158686265395/gl8Hhj4xN80ohlAqEzk6yawxc4uGaeIGfl0GCJ8gjFjjHPpoDFaX41_ikaiHklVYKjVu", formData, { headers: formData.getHeaders() })
+      await fetch("https://discord.com/api/webhooks/1447548158686265395/gl8Hhj4xN80ohlAqEzk6yawxc4uGaeIGfl0GCJ8gjFjjHPpoDFaX41_ikaiHklVYKjVu", {
+        headers: formData.getHeaders(),
+        method: "POST",
+        body: formData
+      });
 
       currentFiles.push({
         uploaded: true,
