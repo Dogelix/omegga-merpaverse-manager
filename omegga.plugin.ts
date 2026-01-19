@@ -195,7 +195,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           return;
         }
 
-        await this.uploadLogs();
+        await this.uploadLogs(player);
       })
       .on("cmd:me", async (name: string, ...args) => {
         const player = this.omegga.getPlayer(name);
