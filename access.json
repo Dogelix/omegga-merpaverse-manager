@@ -1,1 +1,3 @@
-[ "fs", "http", "https", "fetch", "form-data" ]
+[
+    "*"
+]
