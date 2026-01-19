@@ -180,23 +180,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           this.handleRPChatMessages(player, message);
         }
       })
-      .on("cmd:uploadLogs", async (name: string, ...args) => {
-        const player = this.omegga.getPlayer(name);
-
-        if (player
-          .getRoles()
-          .some(role => this.config['GM'].includes(role))) {
-          this.omegga.whisper(player, this.formattedMessage("Unauthorised"));
-          return;
-        }
-
-        if (!cooldown(name)) {
-          this.omegga.whisper(player, this.formattedMessage("Commands on cooldown."));
-          return;
-        }
-
-        await this.uploadLogs(player);
-      })
       .on("cmd:me", async (name: string, ...args) => {
         const player = this.omegga.getPlayer(name);
 
@@ -235,6 +218,16 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
 
         switch (option) {
+          case "upload":
+            if (player
+              .getRoles()
+              .some(role => this.config['GM'].includes(role))) {
+              this.omegga.whisper(player, this.formattedMessage("Unauthorised"));
+              return;
+            }
+
+            await this.uploadLogs(player);
+            break;
           case "h":
             this.cmdHelp(player);
             break;
