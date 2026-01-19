@@ -1,1 +1,1 @@
-[ "fs", "https", "fetch", "path" ]
+[ "fs", "http", "fetch", "form-data" ]
