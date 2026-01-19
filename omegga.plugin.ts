@@ -1,7 +1,8 @@
 import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer } from 'omegga';
 import CooldownProvider from './util.cooldown.js';
-import { appendFileSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
-import https from "https";
+import { appendFileSync, writeFileSync, readFileSync, readdirSync, createReadStream } from 'node:fs';
+import fetch from 'node-fetch';
+import FormData from 'form-data';
 
 // plugin config and storage
 type Config = {
@@ -115,13 +116,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     filesToUpload.map(async (path) => {
 
       this.omegga.whisper(player, this.formattedMessage("Uploading " + path));
-      const fileBytes = readFileSync(path, "utf-8");
       const formData = new FormData();
       const uploadDate = new Date();
       formData.append("content", `File Uploaded => ${uploadDate.toISOString()}`);
-      formData.append("file", new Blob([fileBytes]), path.match(fileRegex)[0]);
+      formData.append("file", createReadStream(path), path.match(fileRegex)[0]);
 
       await fetch("https://discord.com/api/webhooks/1447548158686265395/gl8Hhj4xN80ohlAqEzk6yawxc4uGaeIGfl0GCJ8gjFjjHPpoDFaX41_ikaiHklVYKjVu", {
+        headers: formData.getHeaders(),
         method: "POST",
         body: formData
       });
