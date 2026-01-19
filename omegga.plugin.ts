@@ -1,8 +1,7 @@
-import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer, WriteSaveObject, Vector } from 'omegga';
+import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer } from 'omegga';
 import CooldownProvider from './util.cooldown.js';
 import { appendFileSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
 import https from "https";
-import { join } from 'node:path';
 
 // plugin config and storage
 type Config = {
@@ -519,44 +518,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   getRandomInt(min: number, max: number): number {
     // Inclusive of both min and max
     return Math.floor(Math.random() * (max - min + 1)) + min;
-  }
-
-  async sendChatLogsToDiscord(messages: string[]) {
-    const data = JSON.stringify({
-      content: messages
-    });
-
-    const url = new URL("https://discord.com/api/webhooks/1447548158686265395/gl8Hhj4xN80ohlAqEzk6yawxc4uGaeIGfl0GCJ8gjFjjHPpoDFaX41_ikaiHklVYKjVu");
-
-    const options: https.RequestOptions = {
-      hostname: url.hostname,
-      path: url.pathname + url.search,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(data),
-      },
-    };
-
-    const req = https.request(options, (res) => {
-      let body = "";
-
-      res.on("data", (chunk) => (body += chunk));
-      res.on("end", () => {
-        if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
-          console.error("Discord error:", res.statusCode, body);
-        } else {
-          console.log("Message sent:", body);
-        }
-      });
-    });
-
-    req.on("error", (err) => {
-      console.error("Request error:", err);
-    });
-
-    req.write(data);
-    req.end();
   }
 
   async stop() {
