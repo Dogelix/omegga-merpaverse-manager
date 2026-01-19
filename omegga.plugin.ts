@@ -78,9 +78,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   async getStoredPlayerRoomPreferences() {
     try {
       const data = fs.readFileSync(PLAYER_PREFS_FILE_PATH, "utf-8");
-      const returnValue = JSON.parse(data) as playerRoomPreference[];
-      console.log("Loaded stored room prefs: ", returnValue);
-      return returnValue;
+      return JSON.parse(data) as playerRoomPreference[];
     } catch (err: any) {
       if (err.code === "ENOENT") {
         return [] as playerRoomPreference[]; // file not found
@@ -88,55 +86,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       throw err; // other errors (invalid JSON, permission, etc.)
     }
   };
-
-  async uploadLogs(player: OmeggaPlayer) {
-    console.log("Uploading Logs");
-    this.omegga.whisper(player, this.formattedMessage("Uploading RP Logs"));
-    let currentFiles: uploadedLogEntry[] = [];
-
-    try {
-      const data = fs.readFileSync(UPLOADED_LOG_LIST, "utf-8");
-      currentFiles = JSON.parse(data) as uploadedLogEntry[];
-    } catch (err: any) {
-      if (err.code !== "ENOENT") {
-        console.error(err);
-        return;
-      }
-
-
-      this.omegga.whisper(player, this.formattedMessage("Log list not found. Creating."));
-
-      fs.writeFileSync(UPLOADED_LOG_LIST, JSON.stringify(currentFiles), "utf-8");
-    }
-
-    const files = fs.readdirSync("./", { withFileTypes: true }).filter(e => !e.isDirectory() && e.name.includes(".md")).map(item => item.name);
-    const flatUploadedPaths = currentFiles.flatMap(e => e.logName);
-    const filesToUpload = files.filter(e => !flatUploadedPaths.includes(e));
-
-    filesToUpload.map(async (path) => {
-
-      this.omegga.whisper(player, this.formattedMessage("Uploading " + path));
-      const fileBytes = fs.readFileSync(path, "utf-8");
-      const formData = new FormData();
-      const uploadDate = new Date();
-      formData.append("content", `File Uploaded => ${uploadDate.toISOString()}`);
-      formData.append("file", fs.createReadStream(path), path.match(fileRegex)[0]);
-
-      await fetch("https://discord.com/api/webhooks/1447548158686265395/gl8Hhj4xN80ohlAqEzk6yawxc4uGaeIGfl0GCJ8gjFjjHPpoDFaX41_ikaiHklVYKjVu", {
-        headers: formData.getHeaders(),
-        method: "POST",
-        body: formData
-      });
-
-      currentFiles.push({
-        uploaded: true,
-        logName: path,
-        uploadTime: uploadDate
-      });
-    });
-
-    fs.writeFileSync(UPLOADED_LOG_LIST, JSON.stringify(currentFiles), "utf-8");
-  }
 
   async init() {
     this.store.set("playersInRPChat", []);
@@ -231,14 +180,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
 
         switch (option) {
-          case "upload":
-            if (!adminRoleAuth(name)) {
-              this.omegga.whisper(player, this.formattedMessage("Unauthorised"));
-              return;
-            }
-
-            await this.uploadLogs(player);
-            break;
           case "h":
             this.cmdHelp(player);
             break;
