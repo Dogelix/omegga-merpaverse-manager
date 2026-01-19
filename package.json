@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "form-data": "^4.0.5",
+    "http": "^0.0.1-security",
     "node-fetch": "^3.3.2"
   }
 }
