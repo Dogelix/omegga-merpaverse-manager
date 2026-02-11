@@ -360,7 +360,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       this.store.set("messagesToSendViaWebhook", updatedMessages);
 
       if (!this.config.uploadFiles) {
-        if(updatedMessages.join("\n").length >= 190) {
+        if(updatedMessages.join("\n").length >= 1900) { // Discord message character limit is 2000, keeping it at 1900 to be safe
           await this.flushCachedRPChatLogs();
           this.clearRPChatCacheFlushTimeout();
         }
