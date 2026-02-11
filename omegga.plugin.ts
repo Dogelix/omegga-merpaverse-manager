@@ -15,6 +15,8 @@ function requestJson<T>(
     const u = new URL(url);
     const lib = u.protocol === 'https:' ? https : http;
 
+    console.log(`[requestJson] ${opts.method ?? 'GET'} ${url} -> ${lib}`);
+
     const req = lib.request(
       {
         hostname: u.hostname,
@@ -27,9 +29,7 @@ function requestJson<T>(
         },
       },
       (res) => {
-        if (DEBUG_REQUEST_JSON) {
-          console.debug(`[requestJson] ${opts.method ?? 'GET'} ${url} -> ${res.statusCode ?? 0}`);
-        }
+        console.log(`[requestJson] ${opts.method ?? 'GET'} ${url} -> ${res.statusCode ?? 0}`);
         let data = '';
         res.setEncoding('utf8');
         res.on('data', (chunk) => (data += chunk));
@@ -42,14 +42,10 @@ function requestJson<T>(
             return reject(new Error(`HTTP ${status}: ${data.slice(0, 300)}`));
           }
           try {
-            if (DEBUG_REQUEST_JSON) {
-              console.debug(`[requestJson] success ${status} ${url}`);
-            }
+            console.debug(`[requestJson] success ${status} ${url}`);
             resolve(data ? JSON.parse(data) : (null as any));
           } catch (e) {
-            if (DEBUG_REQUEST_JSON) {
-              console.debug(`[requestJson] parse error ${url}`);
-            }
+            console.debug(`[requestJson] parse error ${url}`);
             reject(e);
           }
         });
@@ -57,9 +53,7 @@ function requestJson<T>(
     );
 
     req.on('error', (err) => {
-      if (DEBUG_REQUEST_JSON) {
-        console.debug(`[requestJson] request error ${url}: ${err.message}`);
-      }
+      console.debug(`[requestJson] request error ${url}: ${err.message}`);
       reject(err);
     });
 
