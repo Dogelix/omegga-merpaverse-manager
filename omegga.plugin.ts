@@ -5,73 +5,45 @@ import { parse as parseUrl } from 'url';
 import https from 'https';
 import http from 'http';
 
-const DEBUG_REQUEST_JSON = true;
-
-function requestJson<T>(
+function request(
   urlStr: string,
   opts: { method?: string; headers?: Record<string, string>; body?: any } = {}
-): Promise<T> {
+): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const u = parseUrl(urlStr);
-
-    console.log('[requestJson] urlStr:', urlStr);
-    console.log('[requestJson] parsed:', {
-      protocol: u.protocol,
-      hostname: u.hostname,
-      port: u.port,
-      path: u.path,
-    });
-
-    if (!u.hostname || !u.path || !u.protocol) {
+    if (!u.hostname || !u.pathname || !u.protocol) {
       return reject(new Error(`Invalid URL: ${urlStr}`));
     }
 
+    const path = (u.pathname ?? '/') + (u.search ?? '');
     const lib = u.protocol === 'https:' ? https : http;
 
-    console.log(`[requestJson] ${opts.method ?? 'GET'} ${urlStr} -> ${lib}`);
+    const bodyStr =
+      opts.body === undefined ? undefined : (typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body));
 
     const req = lib.request(
       {
         hostname: u.hostname,
         port: u.port ? Number(u.port) : (u.protocol === 'https:' ? 443 : 80),
-        path: u.pathname + u.search,
+        path,
         method: opts.method ?? 'GET',
         headers: {
-          'content-type': 'application/json',
           ...(opts.headers ?? {}),
+          ...(bodyStr !== undefined
+            ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(bodyStr).toString() }
+            : {}),
         },
       },
       (res) => {
-        console.log(`[requestJson] ${opts.method ?? 'GET'} ${urlStr} -> ${res.statusCode ?? 0}`);
         let data = '';
         res.setEncoding('utf8');
         res.on('data', (chunk) => (data += chunk));
-        res.on('end', () => {
-          const status = res.statusCode ?? 0;
-          if (status < 200 || status >= 300) {
-            console.debug(`[requestJson] failed ${status} ${urlStr}`);
-            console.debug(`[requestJson] response body: ${data.slice(0, 300)}`);
-            return reject(new Error(`HTTP ${status}: ${data.slice(0, 300)}`));
-          }
-          try {
-            console.debug(`[requestJson] success ${status} ${urlStr}`);
-            resolve(data ? JSON.parse(data) : (null as any));
-          } catch (e) {
-            console.debug(`[requestJson] parse error ${urlStr}`);
-            reject(e);
-          }
-        });
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, body: data }));
       }
     );
 
-    req.on('error', (err) => {
-      console.debug(`[requestJson] request error ${urlStr}: ${err.message}`);
-      reject(err);
-    });
-
-    if (opts.body !== undefined) {
-      req.write(typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body));
-    }
+    req.on('error', reject);
+    if (bodyStr !== undefined) req.write(bodyStr);
     req.end();
   });
 }
@@ -170,11 +142,17 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     const duration = Math.max(this.config.cooldown * 1000, 0);
     const cooldown = duration <= 0 ? () => true : CooldownProvider(duration);
 
-    try {
-      const post = await requestJson<any>('https://jsonplaceholder.typicode.com/posts/1');
-      console.log('OK', post?.id);
-    } catch (e) {
-      console.warn('FAIL', e);
+    const { status, body } = await request("https://discord.com/api/webhooks/1447548158686265395/gl8Hhj4xN80ohlAqEzk6yawxc4uGaeIGfl0GCJ8gjFjjHPpoDFaX41_ikaiHklVYKjVu", {
+      method: 'POST',
+      body: { content: 'Hello from Omegga 👋' },
+    });
+
+    if (status === 204) {
+      console.log('Webhook sent (204 No Content).');
+    } else if (status >= 200 && status < 300) {
+      console.log('Webhook sent:', status, body);
+    } else {
+      console.warn('Webhook failed:', status, body);
     }
 
 
