@@ -1,1 +1,1 @@
-["fs", "http", "https", "zlib", "stream", "buffer", "util", "url", "form-data"]
+["*"]

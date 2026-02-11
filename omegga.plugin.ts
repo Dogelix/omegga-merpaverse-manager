@@ -2,7 +2,6 @@ import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer } from 'omegga';
 import CooldownProvider from './util.cooldown.js';
 import fs from 'fs';
 import fetch from 'node-fetch';
-import FormData from 'form-data';
 
 // plugin config and storage
 type Config = {
@@ -97,6 +96,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
     const duration = Math.max(this.config.cooldown * 1000, 0);
     const cooldown = duration <= 0 ? () => true : CooldownProvider(duration);
+
+    fetch('https://jsonplaceholder.typicode.com/posts/1')
+      .then((response) => response.json())
+      .then((json) => console.log(json));
 
     const authorized = (name: string) => {
       const player = this.omegga.getPlayer(name);
