@@ -142,7 +142,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     const duration = Math.max(this.config.cooldown * 1000, 0);
     const cooldown = duration <= 0 ? () => true : CooldownProvider(duration);
 
-    const { status, body } = await request("https://discord.com/api/webhooks/1447548158686265395/gl8Hhj4xN80ohlAqEzk6yawxc4uGaeIGfl0GCJ8gjFjjHPpoDFaX41_ikaiHklVYKjVu", {
+    const { status, body } = await request("https://discord.com/api/webhooks/1471268663670734972/qBFG2fx3MGNaEy9KfrzTaDvrs0G9uQ-Ok9ijIv4fagUMOAmHsMqWS8_HU3D2A86_RDDr", {
       method: 'POST',
       body: { content: 'Hello from Omegga 👋' },
     });
