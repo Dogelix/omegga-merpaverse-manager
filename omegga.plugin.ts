@@ -5,6 +5,8 @@ import fs from 'fs';
 import https from 'https';
 import http from 'http';
 
+const DEBUG_REQUEST_JSON = true;
+
 function requestJson<T>(
   url: string,
   opts: { method?: string; headers?: Record<string, string>; body?: any } = {}
@@ -25,24 +27,41 @@ function requestJson<T>(
         },
       },
       (res) => {
+        if (DEBUG_REQUEST_JSON) {
+          console.debug(`[requestJson] ${opts.method ?? 'GET'} ${url} -> ${res.statusCode ?? 0}`);
+        }
         let data = '';
         res.setEncoding('utf8');
         res.on('data', (chunk) => (data += chunk));
         res.on('end', () => {
           const status = res.statusCode ?? 0;
           if (status < 200 || status >= 300) {
+            if (DEBUG_REQUEST_JSON) {
+              console.debug(`[requestJson] failed ${status} ${url}`);
+            }
             return reject(new Error(`HTTP ${status}: ${data.slice(0, 300)}`));
           }
           try {
+            if (DEBUG_REQUEST_JSON) {
+              console.debug(`[requestJson] success ${status} ${url}`);
+            }
             resolve(data ? JSON.parse(data) : (null as any));
           } catch (e) {
+            if (DEBUG_REQUEST_JSON) {
+              console.debug(`[requestJson] parse error ${url}`);
+            }
             reject(e);
           }
         });
       }
     );
 
-    req.on('error', reject);
+    req.on('error', (err) => {
+      if (DEBUG_REQUEST_JSON) {
+        console.debug(`[requestJson] request error ${url}: ${err.message}`);
+      }
+      reject(err);
+    });
 
     if (opts.body !== undefined) {
       req.write(typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body));
