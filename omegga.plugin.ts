@@ -142,19 +142,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     const duration = Math.max(this.config.cooldown * 1000, 0);
     const cooldown = duration <= 0 ? () => true : CooldownProvider(duration);
 
-    const { status, body } = await request("https://discord.com/api/webhooks/1471268663670734972/qBFG2fx3MGNaEy9KfrzTaDvrs0G9uQ-Ok9ijIv4fagUMOAmHsMqWS8_HU3D2A86_RDDr", {
-      method: 'POST',
-      body: { content: 'Hello from Omegga 👋' },
-    });
-
-    if (status === 204) {
-      console.log('Webhook sent (204 No Content).');
-    } else if (status >= 200 && status < 300) {
-      console.log('Webhook sent:', status, body);
-    } else {
-      console.warn('Webhook failed:', status, body);
-    }
-
+    await this.sendMessageViaWebhook(`🤖 **MERPaverse** Manager initialized! 🤖`);
 
     const authorized = (name: string) => {
       const player = this.omegga.getPlayer(name);
@@ -557,6 +545,26 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   getRandomInt(min: number, max: number): number {
     // Inclusive of both min and max
     return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  async sendMessageViaWebhook(message: string) {
+    if(!this.config.rpChatLogWebhookUrl) {
+      console.warn("No RP Chat Log Webhook URL configured, skipping webhook message.");
+      return;
+    }
+    
+    const { status, body } = await request(this.config.rpChatLogWebhookUrl, {
+      method: 'POST',
+      body: { content: message },
+    });
+
+    if (status === 204) {
+      console.log('Webhook sent (204 No Content).');
+    } else if (status >= 200 && status < 300) {
+      console.log('Webhook sent:', status, body);
+    } else {
+      console.warn('Webhook failed:', status, body);
+    }
   }
 
   async stop() {
