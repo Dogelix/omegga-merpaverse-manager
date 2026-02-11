@@ -41,9 +41,8 @@ function requestJson<T>(
         res.on('end', () => {
           const status = res.statusCode ?? 0;
           if (status < 200 || status >= 300) {
-            if (DEBUG_REQUEST_JSON) {
-              console.debug(`[requestJson] failed ${status} ${urlStr}`);
-            }
+            console.debug(`[requestJson] failed ${status} ${urlStr}`);
+            console.debug(`[requestJson] response body: ${data.slice(0, 300)}`);
             return reject(new Error(`HTTP ${status}: ${data.slice(0, 300)}`));
           }
           try {
