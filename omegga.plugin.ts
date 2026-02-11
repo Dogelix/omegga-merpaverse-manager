@@ -356,7 +356,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
       const message = `${event.dateTime}\n[${event.user}]: ${event.message}`
       const currentMessages = await this.store.get("messagesToSendViaWebhook") ?? [];
-      const updatedMessages = [...currentMessages, message];
+      const updatedMessages = [...currentMessages, `(**${playerPref.room}**) ${message}`];
       this.store.set("messagesToSendViaWebhook", updatedMessages);
 
       if (!this.config.uploadFiles) {
