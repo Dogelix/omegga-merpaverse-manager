@@ -236,7 +236,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           case "rp":
             try {
               const joinOption = args[0];
-              this.cmdHandleDemerp(player, joinOption);
+              this.cmdHandleRPOptions(player, joinOption);
             }
             catch (e) {
               console.error(e);
@@ -353,10 +353,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       const playerPref = roomPrefs.find(e => e.playerId == player.id);
 
       const fileName = playerPref.room == Rooms.fantasy ? await this.store.get("currentFileForFantasyRPChat") : await this.store.get("currentFileForSpaceRPChat");
-
+      const roomString = playerPref.room == Rooms.fantasy ? "Fantasy" : "Space";
       const message = `${event.dateTime}\n[${event.user}]: ${event.message}`
       const currentMessages = await this.store.get("messagesToSendViaWebhook") ?? [];
-      const updatedMessages = [...currentMessages, `(**${playerPref.room}**) ${message}`];
+      const updatedMessages = [...currentMessages, `(**${roomString}**) ${message}`];
       this.store.set("messagesToSendViaWebhook", updatedMessages);
 
       if (!this.config.uploadFiles) {
@@ -428,7 +428,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     });
   }
 
-  async cmdHandleDemerp(player: OmeggaPlayer, option: string) {
+  async cmdHandleRPOptions(player: OmeggaPlayer, option: string) {
     let players = await this.store.get("playersInRPChat");
 
     if (option === null || option === undefined || option === "") {
