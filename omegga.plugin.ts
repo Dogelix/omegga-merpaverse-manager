@@ -171,14 +171,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     const cooldown = duration <= 0 ? () => true : CooldownProvider(duration);
 
     try {
-      const post = await requestJson<{ id: number; title: string }>(
-        'https://jsonplaceholder.typicode.com/posts/1'
-      );
-      console.log('Successfully made test request. Webhooks should work.');
-      console.log(`Got post ${post.id}: ${post.title}`);
-    } catch (err) {
-      console.warn('Failed to make test request. Webhooks may not work.');
-      console.warn(err);
+      const post = await requestJson<any>('https://jsonplaceholder.typicode.com/posts/1');
+      console.log('OK', post?.id);
+    } catch (e) {
+      console.warn('FAIL', e);
     }
 
 
