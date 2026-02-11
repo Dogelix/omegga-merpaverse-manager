@@ -1,21 +1,26 @@
 import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer } from 'omegga';
 import CooldownProvider from './util.cooldown.js';
 import fs from 'fs';
-
+import { parse as parseUrl } from 'url';
 import https from 'https';
 import http from 'http';
 
 const DEBUG_REQUEST_JSON = true;
 
 function requestJson<T>(
-  url: string,
+  urlStr: string,
   opts: { method?: string; headers?: Record<string, string>; body?: any } = {}
 ): Promise<T> {
   return new Promise((resolve, reject) => {
-    const u = new URL(url);
+    const u = parseUrl(urlStr);
+
+    if (!u.hostname || !u.path || !u.protocol) {
+      return reject(new Error(`Invalid URL: ${urlStr}`));
+    }
+
     const lib = u.protocol === 'https:' ? https : http;
 
-    console.log(`[requestJson] ${opts.method ?? 'GET'} ${url} -> ${lib}`);
+    console.log(`[requestJson] ${opts.method ?? 'GET'} ${urlStr} -> ${lib}`);
 
     const req = lib.request(
       {
@@ -29,7 +34,7 @@ function requestJson<T>(
         },
       },
       (res) => {
-        console.log(`[requestJson] ${opts.method ?? 'GET'} ${url} -> ${res.statusCode ?? 0}`);
+        console.log(`[requestJson] ${opts.method ?? 'GET'} ${urlStr} -> ${res.statusCode ?? 0}`);
         let data = '';
         res.setEncoding('utf8');
         res.on('data', (chunk) => (data += chunk));
@@ -37,15 +42,15 @@ function requestJson<T>(
           const status = res.statusCode ?? 0;
           if (status < 200 || status >= 300) {
             if (DEBUG_REQUEST_JSON) {
-              console.debug(`[requestJson] failed ${status} ${url}`);
+              console.debug(`[requestJson] failed ${status} ${urlStr}`);
             }
             return reject(new Error(`HTTP ${status}: ${data.slice(0, 300)}`));
           }
           try {
-            console.debug(`[requestJson] success ${status} ${url}`);
+            console.debug(`[requestJson] success ${status} ${urlStr}`);
             resolve(data ? JSON.parse(data) : (null as any));
           } catch (e) {
-            console.debug(`[requestJson] parse error ${url}`);
+            console.debug(`[requestJson] parse error ${urlStr}`);
             reject(e);
           }
         });
@@ -53,7 +58,7 @@ function requestJson<T>(
     );
 
     req.on('error', (err) => {
-      console.debug(`[requestJson] request error ${url}: ${err.message}`);
+      console.debug(`[requestJson] request error ${urlStr}: ${err.message}`);
       reject(err);
     });
 
