@@ -14,6 +14,14 @@ function requestJson<T>(
   return new Promise((resolve, reject) => {
     const u = parseUrl(urlStr);
 
+    console.log('[requestJson] urlStr:', urlStr);
+    console.log('[requestJson] parsed:', {
+      protocol: u.protocol,
+      hostname: u.hostname,
+      port: u.port,
+      path: u.path,
+    });
+
     if (!u.hostname || !u.path || !u.protocol) {
       return reject(new Error(`Invalid URL: ${urlStr}`));
     }
