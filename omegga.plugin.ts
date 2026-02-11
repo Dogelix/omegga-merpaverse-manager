@@ -360,6 +360,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       this.store.set("messagesToSendViaWebhook", updatedMessages);
 
       if (!this.config.uploadFiles) {
+        if(updatedMessages.join("\n").length >= 190) {
+          await this.flushCachedRPChatLogs();
+          this.clearRPChatCacheFlushTimeout();
+        }
         if (updatedMessages.length >= this.config.rpChatLogCacheSize) {
           await this.flushCachedRPChatLogs();
           this.clearRPChatCacheFlushTimeout();
