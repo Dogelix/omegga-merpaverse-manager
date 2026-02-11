@@ -38,6 +38,16 @@
       "description": "The Webhook URL to send RP message to discord",
       "type": "string",
       "default": null
+    },
+    "uploadFiles": {
+      "description": "If true, the plugin will upload rp chat logs as files to the webhook instead of sending them as messages.",
+      "type": "boolean",
+      "default": false
+    },
+    "rpChatLogCacheSize": {
+      "description": "The number of RP chat logs to cache in memory before sending them to the webhook. Only applicable if uploadFiles is false. There will be a 5 minute timeout to send the logs even if the cache size is not reached.",
+      "type": "number",
+      "default": 10
     }
   },
   "commands": [

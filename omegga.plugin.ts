@@ -56,17 +56,13 @@ type Config = {
   'admin-roles': string[];
   cooldown: number;
   rpChatLogWebhookUrl?: string | null;
+  uploadFiles: boolean;
+  rpChatLogCacheSize: number;
 };
 
 interface playerRoomPreference {
   room: Rooms;
   playerId: string;
-}
-
-interface uploadedLogEntry {
-  uploaded: boolean;
-  logName: string;
-  uploadTime: Date;
 }
 
 type Storage = {
@@ -75,6 +71,7 @@ type Storage = {
   messagesToSendViaWebhook?: string[];
   currentFileForSpaceRPChat?: string | null;
   currentFileForFantasyRPChat?: string | null;
+  cachedRPChatLogs?: string[];
 };
 
 enum Rooms {
@@ -92,6 +89,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   omegga: OL;
   config: PC<Config>;
   store: PS<Storage>;
+  private rpChatCacheFlushTimeout: NodeJS.Timeout | null = null;
+  private readonly rpChatCacheFlushIntervalMs = 5 * 60 * 1000;
 
   merpaverseColour: string = "#1c62d4";
 
@@ -153,16 +152,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         player
           .getRoles()
           .some(role => this.config['authorized-roles'].includes(role))
-      );
-    };
-
-    const adminRoleAuth = (name: string) => {
-      const player = this.omegga.getPlayer(name);
-      return (
-        player.isHost() ||
-        player
-          .getRoles()
-          .some(role => this.config['admin-roles'].includes(role))
       );
     };
 
@@ -247,7 +236,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           case "rp":
             try {
               const joinOption = args[0];
-              this.cmdHandleChat(player, joinOption);
+              this.cmdHandleDemerp(player, joinOption);
             }
             catch (e) {
               console.error(e);
@@ -366,10 +355,18 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       const fileName = playerPref.room == Rooms.fantasy ? await this.store.get("currentFileForFantasyRPChat") : await this.store.get("currentFileForSpaceRPChat");
 
       const message = `${event.dateTime}\n[${event.user}]: ${event.message}`
+      const currentMessages = await this.store.get("messagesToSendViaWebhook") ?? [];
+      const updatedMessages = [...currentMessages, message];
+      this.store.set("messagesToSendViaWebhook", updatedMessages);
 
-      let currentMessages = await this.store.get("messagesToSendViaWebhook");
-      currentMessages.push(message);
-      this.store.set("messagesToSendViaWebhook", currentMessages);
+      if (!this.config.uploadFiles) {
+        if (updatedMessages.length >= this.config.rpChatLogCacheSize) {
+          await this.flushCachedRPChatLogs();
+          this.clearRPChatCacheFlushTimeout();
+        } else {
+          this.resetRPChatCacheFlushTimeout();
+        }
+      }
 
       if (fileName != null) {
         fs.appendFileSync(fileName, message + "\n", "utf8");
@@ -431,7 +428,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     });
   }
 
-  async cmdHandleChat(player: OmeggaPlayer, option: string) {
+  async cmdHandleDemerp(player: OmeggaPlayer, option: string) {
     let players = await this.store.get("playersInRPChat");
 
     if (option === null || option === undefined || option === "") {
@@ -448,9 +445,17 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
       players.push(player.id);
       console.log(`Player ${player.name} has joined RP Chat.`);
-      this.updatePlayerRoomPref(player, Rooms.space);
+
+      const roomPrefs = await this.store.get("playerRoomPreferences");
+      const playerPref = roomPrefs.find(e => e.playerId == player.id);
+
+      if (playerPref === undefined) {
+        await this.updatePlayerRoomPref(player, Rooms.space);
+      }
+
       this.store.set("playersInRPChat", players);
       this.omegga.whisper(player, this.formattedMessage(`You have <color="#17ad3f">joined</> the RP Chat.`));
+      playerPref.room == Rooms.fantasy ? this.omegga.whisper(player, this.formattedMessage("You have joined the <b>Fantasy</> room.")) : this.omegga.whisper(player, this.formattedMessage("You have joined the <b>Space</> room."))
 
     } else if (["leave", "l"].includes(option.toLowerCase())) {
       players = players.filter(e => e != player.id);
@@ -459,8 +464,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       this.omegga.whisper(player, this.formattedMessage(`You have <color="#ad1313">left</> the RP Chat.`));
 
       if (players.length < 1) {
-        console.log("Clearing RP File Name");
-        this.store.set("currentFileForSpaceRPChat", null);
+        this.closeRPChatLogs();
       }
     } else if (["info", "i"].includes(option.toLowerCase())) {
       this.omegga.whisper(player, this.formattedMessage("Players currently in RP Chat:"));
@@ -471,15 +475,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     } else if (["clear", "c"].includes(option.toLowerCase())) {
       if (player.getRoles().includes("GM")) {
         this.store.set("playersInRPChat", null);
-        try {
-          const fileName = await this.store.get("currentFileForSpaceRPChat");
-          fs.appendFileSync(fileName, "]");
-
-        } catch (e) {
-          console.error("Last person left RP chat but file didn't exist.");
-        } finally {
-          this.store.set("currentFileForSpaceRPChat", null);
-        }
+        this.closeRPChatLogs();
+        this.omegga.whisper(player, this.formattedMessage("RP Chat cleared."));
       } else {
         this.omegga.whisper(player, this.formattedMessage("Unauthorised"));
       }
@@ -487,6 +484,21 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       this.updatePlayerRoomPref(player, Rooms.space);
     } else if (["fantasy", "f"].includes(option.toLowerCase())) {
       this.updatePlayerRoomPref(player, Rooms.fantasy);
+    }
+  }
+
+  async closeRPChatLogs() {
+    const spaceFileName = await this.store.get("currentFileForSpaceRPChat");
+    const fantasyFileName = await this.store.get("currentFileForFantasyRPChat");
+
+    if (spaceFileName) {
+      fs.appendFileSync(spaceFileName, "-=-=- End of RP Chat Log =-=-");
+      this.store.set("currentFileForSpaceRPChat", null);
+    }
+
+    if (fantasyFileName) {
+      fs.appendFileSync(fantasyFileName, "-=-=- End of RP Chat Log =-=-");
+      this.store.set("currentFileForFantasyRPChat", null);
     }
   }
 
@@ -548,11 +560,11 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   }
 
   async sendMessageViaWebhook(message: string) {
-    if(!this.config.rpChatLogWebhookUrl) {
+    if (!this.config.rpChatLogWebhookUrl) {
       console.warn("No RP Chat Log Webhook URL configured, skipping webhook message.");
       return;
     }
-    
+
     const { status, body } = await request(this.config.rpChatLogWebhookUrl, {
       method: 'POST',
       body: { content: message },
@@ -567,9 +579,46 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     }
   }
 
+  async sendCachedRPChatLogs(messages: string[]) {
+    if (!this.config.rpChatLogWebhookUrl) {
+      console.warn("No RP Chat Log Webhook URL configured, skipping log upload.");
+      return;
+    }
+    const content = messages.join("\n");
+    await this.sendMessageViaWebhook(content);
+  }
+
+  private clearRPChatCacheFlushTimeout() {
+    if (this.rpChatCacheFlushTimeout) {
+      clearTimeout(this.rpChatCacheFlushTimeout);
+      this.rpChatCacheFlushTimeout = null;
+    }
+  }
+
+  private resetRPChatCacheFlushTimeout() {
+    this.clearRPChatCacheFlushTimeout();
+    this.rpChatCacheFlushTimeout = setTimeout(async () => {
+      await this.flushCachedRPChatLogs();
+      this.rpChatCacheFlushTimeout = null;
+    }, this.rpChatCacheFlushIntervalMs);
+  }
+
+  private async flushCachedRPChatLogs() {
+    if (this.config.uploadFiles) {
+      return;
+    }
+
+    const messagesToSend = await this.store.get("messagesToSendViaWebhook") ?? [];
+    if (messagesToSend.length < 1) {
+      return;
+    }
+
+    await this.sendCachedRPChatLogs(messagesToSend);
+    this.store.set("messagesToSendViaWebhook", []);
+  }
+
   async stop() {
-    // this.announcementTimeouts.map((timeout) => {
-    //   clearTimeout(timeout);
-    // });
+    this.clearRPChatCacheFlushTimeout();
+    await this.flushCachedRPChatLogs();
   }
 }
