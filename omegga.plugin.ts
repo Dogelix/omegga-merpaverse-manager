@@ -721,5 +721,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   async stop() {
     this.clearRPChatCacheFlushTimeout();
     await this.flushCachedRPChatLogs();
+    await this.closeRPChatLogs();
   }
 }
