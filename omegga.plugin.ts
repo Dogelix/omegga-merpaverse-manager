@@ -4,6 +4,7 @@ import fs from 'fs';
 import { parse as parseUrl } from 'url';
 import https from 'https';
 import http from 'http';
+import { randomBytes } from 'crypto';
 
 function request(
   urlStr: string,
@@ -360,7 +361,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       this.store.set("messagesToSendViaWebhook", updatedMessages);
 
       if (!this.config.uploadFiles) {
-        if(updatedMessages.join("\n").length >= 1900) { // Discord message character limit is 2000, keeping it at 1900 to be safe
+        if (updatedMessages.join("\n").length >= 1900) { // Discord message character limit is 2000, keeping it at 1900 to be safe
           await this.flushCachedRPChatLogs();
           this.clearRPChatCacheFlushTimeout();
         }
@@ -498,11 +499,35 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     if (spaceFileName) {
       fs.appendFileSync(spaceFileName, "-=-=- End of RP Chat Log =-=-");
       this.store.set("currentFileForSpaceRPChat", null);
+
+      if (this.config.uploadFiles) {
+        const buf = fs.readFileSync(spaceFileName);
+
+        const res = await this.sendFileViaWebhook(spaceFileName, buf, "text/markdown");
+
+        if (res.status >= 200 && res.status < 300) {
+          console.log("Uploaded SPACE LOG OK:", res.status);
+        } else {
+          console.warn("Upload SPACE LOG failed:", res.status, res.body);
+        }
+      }
     }
 
     if (fantasyFileName) {
       fs.appendFileSync(fantasyFileName, "-=-=- End of RP Chat Log =-=-");
+
       this.store.set("currentFileForFantasyRPChat", null);
+      if (this.config.uploadFiles) {
+        const buf = fs.readFileSync(fantasyFileName);
+
+        const res = await this.sendFileViaWebhook(fantasyFileName, buf, "text/markdown");
+
+        if (res.status >= 200 && res.status < 300) {
+          console.log("Uploaded FANTASY LOG OK:", res.status);
+        } else {
+          console.warn("Upload FANTASY LOG failed:", res.status, res.body);
+        }
+      }
     }
   }
 
@@ -581,6 +606,78 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     } else {
       console.warn('Webhook failed:', status, body);
     }
+  }
+
+  async sendFileViaWebhook(fileName: string, data: Buffer, contentType: string): Promise<{ status: number; body: string }> {
+    if (!this.config.rpChatLogWebhookUrl) {
+      console.warn("No RP Chat Log Webhook URL configured, skipping log upload.");
+      return;
+    }
+
+    const webhookUrl = this.config.rpChatLogWebhookUrl;
+
+    return new Promise((resolve, reject) => {
+      const u = parseUrl(webhookUrl);
+      if (!u.hostname || !u.pathname || !u.protocol) {
+        return reject(new Error(`Invalid webhook URL: ${webhookUrl}`));
+      }
+
+      const path = (u.pathname ?? "/") + (u.search ?? "");
+      const lib = u.protocol === "https:" ? https : http;
+
+      const boundary = "----omegga-" + randomBytes(12).toString("hex");
+      const crlf = "\r\n";
+
+      const payloadJson = Buffer.from(JSON.stringify({ content: `💾 Uploaded RP Log : ${fileName}` }), "utf8");
+
+      const partPayload =
+        `--${boundary}${crlf}` +
+        `Content-Disposition: form-data; name="payload_json"${crlf}` +
+        `Content-Type: application/json${crlf}${crlf}`;
+      const partPayloadBuf = Buffer.from(partPayload, "utf8");
+
+      const fileType = contentType ?? "application/octet-stream";
+      const partFileHeader =
+        `--${boundary}${crlf}` +
+        `Content-Disposition: form-data; name="files[0]"; filename="${fileName}"${crlf}` +
+        `Content-Type: ${fileType}${crlf}${crlf}`;
+      const partFileHeaderBuf = Buffer.from(partFileHeader, "utf8");
+
+      const trailer = Buffer.from(`${crlf}--${boundary}--${crlf}`, "utf8");
+
+      // Build full multipart body
+      const body = Buffer.concat([
+        partPayloadBuf,
+        payloadJson,
+        Buffer.from(crlf, "utf8"),
+        partFileHeaderBuf,
+        data,
+        trailer,
+      ]);
+
+      const req = lib.request(
+        {
+          hostname: u.hostname,
+          port: u.port ? Number(u.port) : u.protocol === "https:" ? 443 : 80,
+          path,
+          method: "POST",
+          headers: {
+            "Content-Type": `multipart/form-data; boundary=${boundary}`,
+            "Content-Length": body.length,
+          },
+        },
+        (res) => {
+          let data = "";
+          res.setEncoding("utf8");
+          res.on("data", (chunk) => (data += chunk));
+          res.on("end", () => resolve({ status: res.statusCode ?? 0, body: data }));
+        }
+      );
+
+      req.on("error", reject);
+      req.write(body);
+      req.end();
+    });
   }
 
   async sendCachedRPChatLogs(messages: string[]) {
