@@ -368,7 +368,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       const updatedMessages = [...currentMessages, `(**${roomString}**) ${message}`];
       this.store.set("messagesToSendViaWebhook", updatedMessages);
 
-      if (!this.config.uploadFiles || (this.config.uploadFiles && this.config.sendChatAsWellAsFiles)) {
+      if (!this.config.uploadFiles) {
         if (updatedMessages.join("\n").length >= 1900) { // Discord message character limit is 2000, keeping it at 1900 to be safe
           await this.flushCachedRPChatLogs();
           this.clearRPChatCacheFlushTimeout();
@@ -713,7 +713,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   }
 
   private async flushCachedRPChatLogs() {
-    if (this.config.uploadFiles) {
+    if (this.config.uploadFiles && !(this.config.sendChatAsWellAsFiles)) {
       return;
     }
 
