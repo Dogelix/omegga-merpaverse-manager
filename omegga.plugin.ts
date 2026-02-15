@@ -59,6 +59,8 @@ type Config = {
   rpChatLogWebhookUrl?: string | null;
   fileFileAlternateWebhookUrl?: string | null;
   uploadFiles: boolean;
+  sendChatAsWellAsFiles: boolean;
+  rpChatLogTimeoutMins: number;
   rpChatLogCacheSize: number;
 };
 
@@ -92,7 +94,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   config: PC<Config>;
   store: PS<Storage>;
   private rpChatCacheFlushTimeout: NodeJS.Timeout | null = null;
-  private readonly rpChatCacheFlushIntervalMs = 5 * 60 * 1000;
+  private rpChatCacheFlushIntervalMs = 5 * 60 * 1000;
 
   merpaverseColour: string = "#1c62d4";
 
@@ -106,18 +108,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
   formattedMessage(msg: string) {
     return `[<b><color="${this.merpaverseColour}">MERPaverse Manager</></>] ${msg}`;
-  }
-
-  msUntil(hour: number, minute = 0) {
-    const now = new Date();
-    const next = new Date();
-
-    next.setHours(hour, minute, 0, 0);
-    if (next <= now) {
-      next.setDate(next.getDate() + 1);
-    }
-
-    return next.getTime() - now.getTime();
   }
 
   async getStoredPlayerRoomPreferences() {
@@ -143,7 +133,22 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     const duration = Math.max(this.config.cooldown * 1000, 0);
     const cooldown = duration <= 0 ? () => true : CooldownProvider(duration);
 
+    this.rpChatCacheFlushIntervalMs = Math.max(this.config.rpChatLogTimeoutMins * 60 * 1000, 0);
+
     await this.sendMessageViaWebhook(`🤖 **MERPaverse** Manager initialized! 🤖`);
+
+    if(this.config.uploadFiles) {
+      if(this.config.fileFileAlternateWebhookUrl) {
+        await this.sendMessageViaWebhook(`⚠️ Files will be uploaded to alternate channel ⚠️`);
+        if (this.config.sendChatAsWellAsFiles) {
+          await this.sendMessageViaWebhook(`ℹ️ sendChatAsWellAsFiles is enabled, chat messages will also be sent. ℹ️`);
+        }
+      }
+    }
+    else{
+      await this.sendMessageViaWebhook(`⚠️ Chat cache size: ${this.config.rpChatLogCacheSize} ⚠️`);
+      await this.sendMessageViaWebhook(`⚠️ Chat timeout (mins): ${this.config.rpChatLogTimeoutMins ?? 5} ⚠️`);
+    }
 
     const authorized = (name: string) => {
       const player = this.omegga.getPlayer(name);

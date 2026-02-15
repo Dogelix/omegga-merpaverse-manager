@@ -49,6 +49,16 @@
       "type": "boolean",
       "default": false
     },
+    "sendChatAsWellAsFiles": {
+      "description": "If true, the plugin will send chat messages to the webhook in addition to uploading them as files. ONLY APPLICABLE IF uploadFiles IS TRUE AND fileFileAlternateWebhookUrl IS SET.",
+      "type": "boolean",
+      "default": false
+    },
+    "rpChatLogTimeoutMins": {
+      "description": "The number of minutes to wait before sending RP chat logs to the webhook, even if the cache size has not been reached.",
+      "type": "number",
+      "default": 5
+    },
     "rpChatLogCacheSize": {
       "description": "The number of RP chat logs to cache in memory before sending them to the webhook. Only applicable if uploadFiles is false. There will be a 5 minute timeout to send the logs even if the cache size is not reached.",
       "type": "number",
