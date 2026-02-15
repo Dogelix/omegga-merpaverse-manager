@@ -137,15 +137,17 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
     await this.sendMessageViaWebhook(`🤖 **MERPaverse** Manager initialized! 🤖`);
 
-    if(this.config.uploadFiles) {
-      if(this.config.fileFileAlternateWebhookUrl) {
+    if (this.config.uploadFiles) {
+      if (this.config.fileFileAlternateWebhookUrl) {
         await this.sendMessageViaWebhook(`⚠️ Files will be uploaded to alternate channel ⚠️`);
         if (this.config.sendChatAsWellAsFiles) {
           await this.sendMessageViaWebhook(`ℹ️ sendChatAsWellAsFiles is enabled, chat messages will also be sent. ℹ️`);
+          await this.sendMessageViaWebhook(`⚠️ Chat cache size: ${this.config.rpChatLogCacheSize} ⚠️`);
+          await this.sendMessageViaWebhook(`⚠️ Chat timeout (mins): ${this.config.rpChatLogTimeoutMins ?? 5} ⚠️`);
         }
       }
     }
-    else{
+    else {
       await this.sendMessageViaWebhook(`⚠️ Chat cache size: ${this.config.rpChatLogCacheSize} ⚠️`);
       await this.sendMessageViaWebhook(`⚠️ Chat timeout (mins): ${this.config.rpChatLogTimeoutMins ?? 5} ⚠️`);
     }
