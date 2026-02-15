@@ -57,6 +57,7 @@ type Config = {
   'admin-roles': string[];
   cooldown: number;
   rpChatLogWebhookUrl?: string | null;
+  fileFileAlternateWebhookUrl?: string | null;
   uploadFiles: boolean;
   rpChatLogCacheSize: number;
 };
@@ -614,7 +615,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       return;
     }
 
-    const webhookUrl = this.config.rpChatLogWebhookUrl;
+    const webhookUrl = this.config.fileFileAlternateWebhookUrl ?? this.config.rpChatLogWebhookUrl;
 
     return new Promise((resolve, reject) => {
       const u = parseUrl(webhookUrl);

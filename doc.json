@@ -39,6 +39,11 @@
       "type": "string",
       "default": null
     },
+    "fileFileAlternateWebhookUrl": {
+      "description": "The Webhook URL to send RP message files to discord. Only used if uploadFiles is true. If null, rpChatLogWebhookUrl will be used instead.",
+      "type": "string",
+      "default": null
+    },
     "uploadFiles": {
       "description": "If true, the plugin will upload rp chat logs as files to the webhook instead of sending them as messages.",
       "type": "boolean",
