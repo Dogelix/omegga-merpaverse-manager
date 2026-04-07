@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(ls e:/Repos/merpaverse/*.ts e:/Repos/merpaverse/*.js)"
-    ]
-  }
-}
