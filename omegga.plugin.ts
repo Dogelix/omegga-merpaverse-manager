@@ -1,9 +1,9 @@
 import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer } from 'omegga';
 import CooldownProvider from './util.cooldown.js';
 import fs from 'fs';
-import { Config, Storage, Rooms, LORE_FILE_PATH, DISCONNECTED_PLAYERS_FILE_PATH } from './types.js';
-import { RPChatLogger, galacticTimeNow } from './rpchat-logger.js';
-import { sendMessageViaWebhook } from './util.webhook.js';
+import { Config, Storage, Rooms, LORE_FILE_PATH, DISCONNECTED_PLAYERS_FILE_PATH } from './types';
+import { RPChatLogger, galacticTimeNow } from './rpchat-logger';
+import { sendMessageViaWebhook } from './util.webhook';
 
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
   omegga: OL;
