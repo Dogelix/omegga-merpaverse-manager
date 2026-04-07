@@ -23,6 +23,7 @@ export type Storage = {
   disconnectedRPChatPlayers?: { playerId: string; disconnectedAt: number }[];
   initiativeOrder?: { playerId: string; playerName: string; roll: number }[];
   currentInitiativeTurn?: number;
+  galacticTime?: { year: number; day: number; hour: number; setAt: number } | null;
   messagesToSendViaWebhook?: string[];
   currentFileForSpaceRPChat?: string | null;
   currentFileForFantasyRPChat?: string | null;

@@ -23,7 +23,8 @@ export function sendFileViaWebhook(
   webhookUrl: string,
   fileName: string,
   data: Buffer,
-  contentType: string
+  contentType: string,
+  description?: string
 ): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const u = parseUrl(webhookUrl);
@@ -37,7 +38,7 @@ export function sendFileViaWebhook(
     const boundary = "----omegga-" + randomBytes(12).toString("hex");
     const crlf = "\r\n";
 
-    const payloadJson = Buffer.from(JSON.stringify({ content: `💾 Uploaded RP Log : ${fileName}` }), "utf8");
+    const payloadJson = Buffer.from(JSON.stringify({ content: description ?? `💾 Uploaded RP Log : ${fileName}` }), "utf8");
 
     const partPayload =
       `--${boundary}${crlf}` +

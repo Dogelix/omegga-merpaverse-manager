@@ -3,6 +3,23 @@ import fs from 'fs';
 import { Config, Storage, Rooms, PLAYER_PREFS_FILE_PATH, playerRoomPreference } from './types.js';
 import { sendMessageViaWebhook, sendFileViaWebhook, sendCachedRPChatLogs } from './util.webhook.js';
 
+export function galacticTimeNow(base: { year: number; day: number; hour: number; setAt: number }) {
+  const elapsedHours = Math.floor((Date.now() - base.setAt) / (1000 * 60 * 60));
+  let hour = base.hour + elapsedHours;
+  let day  = base.day  + Math.floor(hour / 24);
+  let year = base.year + Math.floor(day  / 365);
+  hour = hour % 24;
+  day  = ((day % 365) + 365) % 365 || 365;
+  return { year, day, hour };
+}
+
+function formatGST(base: { year: number; day: number; hour: number; setAt: number } | null | undefined): string {
+  if (!base) return "GST unknown";
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const { year, day, hour } = galacticTimeNow(base);
+  return `Year ${year}, Day ${pad(day)}, ${pad(hour)}:00 GST`;
+}
+
 export class RPChatLogger {
   private omegga: OL;
   private config: PC<Config>;
@@ -73,7 +90,9 @@ export class RPChatLogger {
         } else {
           this.store.set("currentFileForSpaceRPChat", newFileName);
         }
-        fs.writeFileSync(newFileName, logLine, "utf8");
+        const gst = formatGST(await this.store.get("galacticTime"));
+        const header = `# RP Chat Log — ${roomString}\nStarted: ${gst}\nReal time: ${new Date().toLocaleString("en-GB")}\n\n---\n\n`;
+        fs.writeFileSync(newFileName, header + logLine, "utf8");
       }
 
       this.omegga.middlePrint(player, `<size="8"><color="${this.merpaverseColour}">MERPaverse</> Chat Message Logged</>`);
@@ -98,15 +117,19 @@ export class RPChatLogger {
     const spaceFileName = await this.store.get("currentFileForSpaceRPChat");
     const fantasyFileName = await this.store.get("currentFileForFantasyRPChat");
 
+    const gst = formatGST(await this.store.get("galacticTime"));
+    const footer = `\n\n---\n\nEnded: ${gst}\nReal time: ${new Date().toLocaleString("en-GB")}\n-=-=- End of RP Chat Log =-=-`;
+
     if (spaceFileName) {
-      fs.appendFileSync(spaceFileName, "-=-=- End of RP Chat Log =-=-");
+      fs.appendFileSync(spaceFileName, footer);
       this.store.set("currentFileForSpaceRPChat", null);
 
       if (this.config.uploadFiles) {
         const buf = fs.readFileSync(spaceFileName);
         const webhookUrl = this.config.fileFileAlternateWebhookUrl ?? this.config.rpChatLogWebhookUrl;
         if (webhookUrl) {
-          const res = await sendFileViaWebhook(webhookUrl, spaceFileName, buf, "text/markdown");
+          const spaceDesc = `💾 Uploaded RP Log : ${spaceFileName} | Session ended ${gst}`;
+          const res = await sendFileViaWebhook(webhookUrl, spaceFileName, buf, "text/markdown", spaceDesc);
           if (res.status >= 200 && res.status < 300) {
             console.log("Uploaded SPACE LOG OK:", res.status);
           } else {
@@ -117,14 +140,15 @@ export class RPChatLogger {
     }
 
     if (fantasyFileName) {
-      fs.appendFileSync(fantasyFileName, "-=-=- End of RP Chat Log =-=-");
+      fs.appendFileSync(fantasyFileName, footer);
       this.store.set("currentFileForFantasyRPChat", null);
 
       if (this.config.uploadFiles) {
         const buf = fs.readFileSync(fantasyFileName);
         const webhookUrl = this.config.fileFileAlternateWebhookUrl ?? this.config.rpChatLogWebhookUrl;
         if (webhookUrl) {
-          const res = await sendFileViaWebhook(webhookUrl, fantasyFileName, buf, "text/markdown");
+          const fantasyDesc = `💾 Uploaded RP Log : ${fantasyFileName} | Session ended ${gst}`;
+          const res = await sendFileViaWebhook(webhookUrl, fantasyFileName, buf, "text/markdown", fantasyDesc);
           if (res.status >= 200 && res.status < 300) {
             console.log("Uploaded FANTASY LOG OK:", res.status);
           } else {

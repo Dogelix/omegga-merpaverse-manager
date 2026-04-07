@@ -2,7 +2,7 @@ import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer } from 'omegga';
 import CooldownProvider from './util.cooldown.js';
 import fs from 'fs';
 import { Config, Storage, Rooms, LORE_FILE_PATH } from './types.js';
-import { RPChatLogger } from './rpchat-logger.js';
+import { RPChatLogger, galacticTimeNow } from './rpchat-logger.js';
 import { sendMessageViaWebhook } from './util.webhook.js';
 
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
@@ -185,6 +185,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           case "lore":
             this.cmdLore(player, args[0]);
             break;
+          case "time":
+            this.cmdTime(player, args[0], args[1], args[2], args[3]);
+            break;
         }
       })
       .on("cmd:ooc", async (name: string, ...contents) => {
@@ -260,6 +263,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       `> > Manages combat initiative order. roll adds you to the list. list shows the current order. next and clear are GM only.`,
       `> <color="#ff7300ff">option: lore</>  <color="#00b7ffff">args: (topic)</>`,
       `> > Whispers a lore entry for the given topic.`,
+      `> <color="#ff7300ff">option: time</>  <color="#00b7ffff">args: ([set &lt;year&gt; &lt;day&gt; &lt;hour&gt;])</>`,
+      `> > Shows the current Galactic Standard Time (1:1 with IRL time). GMs can set it with the optional args.`,
       `> <color="#ff7300ff">option: lore</>  <color="#00b7ffff">args: list)</>`,
       `> > Whispers a list of lore topics`,
       `<color="#ffee00ff">/me message</>`,
@@ -480,6 +485,44 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     }
     this.omegga.whisper(player, this.formattedMessage(`<b>${key}</>:`));
     this.omegga.whisper(player, entries[key]);
+  }
+
+  async cmdTime(player: OmeggaPlayer, subCmd: string, yearArg: string, dayArg: string, hourArg: string) {
+    const isGM = player.getRoles().includes("GM") || player.isHost();
+
+    if (!subCmd || subCmd === "show") {
+      const stored = await this.store.get("galacticTime");
+      if (!stored) {
+        this.omegga.whisper(player, this.formattedMessage("Galactic time has not been set. A GM must run <b>/dmerp time set &lt;year&gt; &lt;day&gt; &lt;hour&gt;</>"));
+        return;
+      }
+      const { year, day, hour } = galacticTimeNow(stored);
+      const pad = (n: number) => n.toString().padStart(2, "0");
+      this.omegga.whisper(player, this.formattedMessage(
+        `<b>Galactic Standard Time</> — Year <b>${year}</>, Day <b>${pad(day)}</>, Hour <b>${pad(hour)}:00 GST</>`
+      ));
+
+    } else if (subCmd === "set") {
+      if (!isGM) {
+        this.omegga.whisper(player, this.formattedMessage("Only GMs can set galactic time."));
+        return;
+      }
+      const year = parseInt(yearArg);
+      const day  = parseInt(dayArg);
+      const hour = parseInt(hourArg);
+      if (isNaN(year) || isNaN(day) || isNaN(hour) || day < 1 || day > 365 || hour < 0 || hour > 23) {
+        this.omegga.whisper(player, this.formattedMessage("Usage: <b>/dmerp time set &lt;year&gt; &lt;day 1-365&gt; &lt;hour 0-23&gt;</>"));
+        return;
+      }
+      this.store.set("galacticTime", { year, day, hour, setAt: Date.now() });
+      const pad = (n: number) => n.toString().padStart(2, "0");
+      this.omegga.broadcast(this.formattedMessage(
+        `Galactic time set — Year <b>${year}</>, Day <b>${pad(day)}</>, Hour <b>${pad(hour)}:00 GST</>`
+      ));
+
+    } else {
+      this.omegga.whisper(player, this.formattedMessage("Usage: <b>/dmerp time [set &lt;year&gt; &lt;day&gt; &lt;hour&gt;]</>"));
+    }
   }
 
   private scheduleRPChatExpiry(playerId: string) {
