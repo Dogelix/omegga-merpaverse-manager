@@ -1,7 +1,7 @@
 import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer } from 'omegga';
 import CooldownProvider from './util.cooldown.js';
 import fs from 'fs';
-import { Config, Storage, Rooms, LORE_FILE_PATH } from './types.js';
+import { Config, Storage, Rooms, LORE_FILE_PATH, DISCONNECTED_PLAYERS_FILE_PATH } from './types.js';
 import { RPChatLogger, galacticTimeNow } from './rpchat-logger.js';
 import { sendMessageViaWebhook } from './util.webhook.js';
 
@@ -39,6 +39,20 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     this.store.set("disconnectedRPChatPlayers", []);
     this.store.set("initiativeOrder", []);
     this.store.set("currentInitiativeTurn", 0);
+
+    // Restore disconnected players that haven't expired yet
+    const now = Date.now();
+    const loaded = this.loadDisconnectedPlayers();
+    const stillValid = loaded.filter(e => (e.disconnectedAt + this.RP_CHAT_EXPIRY_MS) > now);
+    if (stillValid.length < loaded.length) {
+      this.saveDisconnectedPlayers(stillValid);
+    }
+    this.store.set("disconnectedRPChatPlayers", stillValid);
+    this.store.set("playersInRPChat", stillValid.map(e => e.playerId));
+    for (const entry of stillValid) {
+      const remainingMs = (entry.disconnectedAt + this.RP_CHAT_EXPIRY_MS) - now;
+      this.scheduleRPChatExpiry(entry.playerId, remainingMs);
+    }
 
     const flushIntervalMs = Math.max(this.config.rpChatLogTimeoutMins * 60 * 1000, 0);
     this.rpChatLogger = new RPChatLogger(this.omegga, this.config, this.store, this.merpaverseColour, flushIntervalMs);
@@ -85,7 +99,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             clearTimeout(this.disconnectTimeouts.get(player.id));
             this.disconnectTimeouts.delete(player.id);
           }
-          this.store.set("disconnectedRPChatPlayers", disconnected.filter(e => e.playerId !== player.id));
+          const updatedDisconnected = disconnected.filter(e => e.playerId !== player.id);
+          this.store.set("disconnectedRPChatPlayers", updatedDisconnected);
+          this.saveDisconnectedPlayers(updatedDisconnected);
           this.omegga.middlePrint(player, this.formattedMessage(`You have <color="#17ad3f">joined</> the RP Chat.`))
         }
       })
@@ -96,7 +112,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           // Keep in playersInRPChat — mark disconnected and start 1-hour expiry
           const disconnected = await this.store.get("disconnectedRPChatPlayers") ?? [];
           if (!disconnected.some(e => e.playerId === player.id)) {
-            this.store.set("disconnectedRPChatPlayers", [...disconnected, { playerId: player.id, disconnectedAt: Date.now() }]);
+            const updatedDisconnected = [...disconnected, { playerId: player.id, disconnectedAt: Date.now() }];
+            this.store.set("disconnectedRPChatPlayers", updatedDisconnected);
+            this.saveDisconnectedPlayers(updatedDisconnected);
           }
           this.scheduleRPChatExpiry(player.id);
         }
@@ -525,7 +543,20 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     }
   }
 
-  private scheduleRPChatExpiry(playerId: string) {
+  private loadDisconnectedPlayers(): { playerId: string; disconnectedAt: number }[] {
+    try {
+      return JSON.parse(fs.readFileSync(DISCONNECTED_PLAYERS_FILE_PATH, "utf-8"));
+    } catch (err: any) {
+      if (err.code === "ENOENT") return [];
+      throw err;
+    }
+  }
+
+  private saveDisconnectedPlayers(entries: { playerId: string; disconnectedAt: number }[]) {
+    fs.writeFileSync(DISCONNECTED_PLAYERS_FILE_PATH, JSON.stringify(entries), "utf-8");
+  }
+
+  private scheduleRPChatExpiry(playerId: string, delayMs = this.RP_CHAT_EXPIRY_MS) {
     if (this.disconnectTimeouts.has(playerId)) {
       clearTimeout(this.disconnectTimeouts.get(playerId));
     }
@@ -537,13 +568,15 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       this.store.set("playersInRPChat", updated);
 
       const disconnected = await this.store.get("disconnectedRPChatPlayers") ?? [];
-      this.store.set("disconnectedRPChatPlayers", disconnected.filter(e => e.playerId !== playerId));
+      const updatedDisconnected = disconnected.filter(e => e.playerId !== playerId);
+      this.store.set("disconnectedRPChatPlayers", updatedDisconnected);
+      this.saveDisconnectedPlayers(updatedDisconnected);
 
-      console.log(`Player ${playerId} RP chat session expired after 1 hour.`);
+      console.log(`Player ${playerId} RP chat session expired.`);
       if (updated.length < 1) {
         this.rpChatLogger.closeRPChatLogs();
       }
-    }, this.RP_CHAT_EXPIRY_MS);
+    }, delayMs);
     this.disconnectTimeouts.set(playerId, timeout);
   }
 
