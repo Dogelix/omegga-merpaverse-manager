@@ -3,3 +3,4 @@ node_modules/
 disabled.omegga
 omegga.d.ts
 .vscode/
+.claude/
