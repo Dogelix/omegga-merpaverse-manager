@@ -1,6 +1,7 @@
 import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer } from 'omegga';
 import CooldownProvider from './util.cooldown.js';
-import { Config, Storage, Rooms } from './types.js';
+import fs from 'fs';
+import { Config, Storage, Rooms, LORE_FILE_PATH } from './types.js';
 import { RPChatLogger } from './rpchat-logger.js';
 import { sendMessageViaWebhook } from './util.webhook.js';
 
@@ -36,6 +37,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     this.store.set("messagesToSendViaWebhook", []);
     this.store.set("playerRoomPreferences", []);
     this.store.set("disconnectedRPChatPlayers", []);
+    this.store.set("initiativeOrder", []);
+    this.store.set("currentInitiativeTurn", 0);
 
     const flushIntervalMs = Math.max(this.config.rpChatLogTimeoutMins * 60 * 1000, 0);
     this.rpChatLogger = new RPChatLogger(this.omegga, this.config, this.store, this.merpaverseColour, flushIntervalMs);
@@ -171,6 +174,17 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
               console.error("An eror occured in dmerp:combat", ex);
             }
             break;
+          case "r":
+          case "roll":
+            this.cmdRoll(player, args[0]);
+            break;
+          case "init":
+          case "initiative":
+            this.cmdInitiative(player, args[0]);
+            break;
+          case "lore":
+            this.cmdLore(player, args[0]);
+            break;
         }
       })
       .on("cmd:ooc", async (name: string, ...contents) => {
@@ -205,24 +219,24 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       let planetString: string;
       switch (planet) {
         case 1:
-        case 5:  planetString = "Eryndor 1"; break;
-        case 2:  planetString = "Eryndor 2"; break;
-        case 3:  planetString = "Veylara"; break;
-        case 4:  planetString = "Eryndor 4"; break;
-        case 6:  planetString = "Eryndor 6"; break;
-        case 7:  planetString = "Eryndor 7"; break;
-        case 8:  planetString = "Eryndor 8"; break;
-        case 9:  planetString = "Eryndor 9"; break;
+        case 5: planetString = "Eryndor 1"; break;
+        case 2: planetString = "Eryndor 2"; break;
+        case 3: planetString = "Veylara"; break;
+        case 4: planetString = "Eryndor 4"; break;
+        case 6: planetString = "Eryndor 6"; break;
+        case 7: planetString = "Eryndor 7"; break;
+        case 8: planetString = "Eryndor 8"; break;
+        case 9: planetString = "Eryndor 9"; break;
         case 10: planetString = "Eryndor 10"; break;
         default: planetString = `${planet} (shouldn't see this)`;
       }
 
       let sizeString: string;
       switch (size) {
-        case 1:  sizeString = "Major Deposit"; break;
-        case 2:  sizeString = "Minor Deposit"; break;
-        case 3:  sizeString = "Minor Crystal"; break;
-        case 4:  sizeString = "Major Crystal"; break;
+        case 1: sizeString = "Major Deposit"; break;
+        case 2: sizeString = "Minor Deposit"; break;
+        case 3: sizeString = "Minor Crystal"; break;
+        case 4: sizeString = "Major Crystal"; break;
       }
 
       this.omegga.whisper(player, this.formattedMessage(`${sizeString}(${size}) on ${planetString}`));
@@ -238,10 +252,16 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       `> > Allows you to join the RP mode where all your chat messages will be logged unless you use <b>/ooc message</>`,
       `> <color="#ff7300ff">option: rp</>  <color="#00b7ffff">args: ('fantasy/f' or 'space/s')</>`,
       `> > Allows you to join the RP rooms for better logging.`,
-      `> <color="#ff7300ff">option: stat</>  <color="#00b7ffff">args: ('large/l','medium/m' or 'small/s') (av) (ap)</>`,
-      `> > Creates a glowing stat brick of your desired size with the AV/AP values applied. Just place.`,
       `> <color="#ff7300ff">option: combat</>  <color="#00b7ffff">args: (av) (ap)</>`,
-      `> > Makes a combat roll, as if you are attacking. It then shows the results.`,
+      `> > Makes a combat roll. Shows the result to all players.`,
+      `> <color="#ff7300ff">option: roll (r)</>  <color="#00b7ffff">args: (XdY+N) e.g. 2d6+3, d20</>`,
+      `> > Rolls dice and broadcasts the result.`,
+      `> <color="#ff7300ff">option: initiative (init)</>  <color="#00b7ffff">args: (roll, list, next, clear)</>`,
+      `> > Manages combat initiative order. roll adds you to the list. list shows the current order. next and clear are GM only.`,
+      `> <color="#ff7300ff">option: lore</>  <color="#00b7ffff">args: (topic)</>`,
+      `> > Whispers a lore entry for the given topic.`,
+      `> <color="#ff7300ff">option: lore</>  <color="#00b7ffff">args: list)</>`,
+      `> > Whispers a list of lore topics`,
       `<color="#ffee00ff">/me message</>`,
       `> > Directly logs to the RP chat log without joining.`,
       `<color="#ffee00ff">/ooc message</>`,
@@ -341,6 +361,125 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     } else {
       this.omegga.broadcast(this.formattedMessage(`${player1Name}: ${attacker} vs. Defender: ${defender}. Damage taken.`));
     }
+  }
+
+  private parseDice(notation: string): { rolls: number[]; modifier: number; total: number } | null {
+    const match = notation?.match(/^(\d*)d(\d+)([+-]\d+)?$/i);
+    if (!match) return null;
+    const count = Math.max(1, parseInt(match[1] || '1'));
+    const sides = parseInt(match[2]);
+    const modifier = parseInt(match[3] || '0');
+    if (count > 20 || sides < 2 || sides > 1000) return null;
+    const rolls = Array.from({ length: count }, () => this.getRandomInt(1, sides));
+    return { rolls, modifier, total: rolls.reduce((a, b) => a + b, 0) + modifier };
+  }
+
+  cmdRoll(player: OmeggaPlayer, notation: string) {
+    if (!notation) {
+      this.omegga.whisper(player, this.formattedMessage("Usage: <b>/dmerp roll 2d6+3</>"));
+      return;
+    }
+    const result = this.parseDice(notation);
+    if (!result) {
+      this.omegga.whisper(player, this.formattedMessage(`Invalid dice notation: <b>${notation}</>. Example: <b>2d6+3</>`));
+      return;
+    }
+    const { rolls, modifier, total } = result;
+    const rollsStr = rolls.length > 1 ? `[${rolls.join(", ")}]` : `${rolls[0]}`;
+    const modStr = modifier !== 0 ? ` ${modifier > 0 ? "+" : ""}${modifier}` : "";
+    const player1Name = `<color="${player.getNameColor()}">${player.name}</>`;
+    this.omegga.broadcast(this.formattedMessage(
+      `${player1Name} rolled <b>${notation}</>: ${rollsStr}${modStr} = <b>${total}</>`
+    ));
+  }
+
+  async cmdInitiative(player: OmeggaPlayer, subCmd: string) {
+    const sub = (subCmd ?? "roll").toLowerCase();
+    const isGM = player.getRoles().includes("GM") || player.isHost();
+
+    if (sub === "roll") {
+      const roll = this.getRandomInt(1, 20);
+      const order = await this.store.get("initiativeOrder") ?? [];
+      const updated = order.filter(e => e.playerId !== player.id);
+      updated.push({ playerId: player.id, playerName: player.name, roll });
+      updated.sort((a, b) => b.roll - a.roll);
+      this.store.set("initiativeOrder", updated);
+      this.store.set("currentInitiativeTurn", 0);
+      const player1Name = `<color="${player.getNameColor()}">${player.name}</>`;
+      this.omegga.broadcast(this.formattedMessage(`${player1Name} rolled initiative: <b>${roll}</>`));
+
+    } else if (sub === "list" || sub === "l") {
+      const order = await this.store.get("initiativeOrder") ?? [];
+      if (order.length === 0) {
+        this.omegga.whisper(player, this.formattedMessage("No initiative rolls yet."));
+        return;
+      }
+      const turn = await this.store.get("currentInitiativeTurn") ?? 0;
+      this.omegga.whisper(player, this.formattedMessage("Initiative order:"));
+      order.forEach((entry, i) => {
+        const marker = i === turn ? " <b>◀ current</>" : "";
+        this.omegga.whisper(player, `  ${i + 1}. ${entry.playerName} — <b>${entry.roll}</>${marker}`);
+      });
+
+    } else if (sub === "next" || sub === "n") {
+      if (!isGM) {
+        this.omegga.whisper(player, this.formattedMessage("Only GMs can advance the turn."));
+        return;
+      }
+      const order = await this.store.get("initiativeOrder") ?? [];
+      if (order.length === 0) {
+        this.omegga.whisper(player, this.formattedMessage("No initiative rolls yet."));
+        return;
+      }
+      const turn = await this.store.get("currentInitiativeTurn") ?? 0;
+      const next = (turn + 1) % order.length;
+      this.store.set("currentInitiativeTurn", next);
+      const current = order[next];
+      this.omegga.broadcast(this.formattedMessage(`It is now <b>${current.playerName}</b>'s turn.`));
+
+    } else if (sub === "clear" || sub === "c") {
+      if (!isGM) {
+        this.omegga.whisper(player, this.formattedMessage("Only GMs can clear initiative."));
+        return;
+      }
+      this.store.set("initiativeOrder", []);
+      this.store.set("currentInitiativeTurn", 0);
+      this.omegga.broadcast(this.formattedMessage("Initiative order cleared."));
+
+    } else {
+      this.omegga.whisper(player, this.formattedMessage("Usage: <b>/dmerp initiative [roll|list|next|clear]</>"));
+    }
+  }
+
+  cmdLore(player: OmeggaPlayer, topic: string) {
+    if (!topic) {
+      this.omegga.whisper(player, this.formattedMessage("Usage: <b>/dmerp lore &lt;topic&gt;</>"));
+      return;
+    }
+    let entries: Record<string, string>;
+    try {
+      entries = JSON.parse(fs.readFileSync(LORE_FILE_PATH, "utf-8"));
+    } catch {
+      this.omegga.whisper(player, this.formattedMessage("Lore file not found or invalid."));
+      return;
+    }
+
+    if (topic.toLowerCase() == "list") {
+      this.omegga.whisper(player, this.formattedMessage(`Lore Topics:`));
+      Object.keys(entries).map((key) => {
+        this.omegga.whisper(player, this.formattedMessage(`> ${key}`));
+      });
+      return;
+    }
+
+    const key = Object.keys(entries).find(k => k.toLowerCase() === topic.toLowerCase());
+    if (!key) {
+      const available = Object.keys(entries).join(", ");
+      this.omegga.whisper(player, this.formattedMessage(`Unknown topic <b>${topic}</>. Available: ${available}`));
+      return;
+    }
+    this.omegga.whisper(player, this.formattedMessage(`<b>${key}</>:`));
+    this.omegga.whisper(player, entries[key]);
   }
 
   private scheduleRPChatExpiry(playerId: string) {
