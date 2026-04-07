@@ -1,7 +1,7 @@
 import { OL, PS, PC, OmeggaPlayer } from 'omegga';
 import fs from 'fs';
-import { Config, Storage, Rooms, PLAYER_PREFS_FILE_PATH, playerRoomPreference } from './types.js';
-import { sendMessageViaWebhook, sendFileViaWebhook, sendCachedRPChatLogs } from './util.webhook.js';
+import { Config, Storage, Rooms, PLAYER_PREFS_FILE_PATH, playerRoomPreference } from './types';
+import { sendMessageViaWebhook, sendFileViaWebhook, sendCachedRPChatLogs } from './util.webhook';
 
 export function galacticTimeNow(base: { year: number; day: number; hour: number; setAt: number }) {
   const elapsedHours = Math.floor((Date.now() - base.setAt) / (1000 * 60 * 60));

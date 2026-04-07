@@ -2,7 +2,7 @@ import { parse as parseUrl } from 'url';
 import https from 'https';
 import http from 'http';
 import { randomBytes } from 'crypto';
-import { request } from './util.request.js';
+import { request } from './util.request';
 
 export async function sendMessageViaWebhook(webhookUrl: string, message: string): Promise<void> {
   const { status, body } = await request(webhookUrl, {
