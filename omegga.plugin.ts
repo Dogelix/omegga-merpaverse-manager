@@ -102,7 +102,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           const updatedDisconnected = disconnected.filter(e => e.playerId !== player.id);
           this.store.set("disconnectedRPChatPlayers", updatedDisconnected);
           this.saveDisconnectedPlayers(updatedDisconnected);
-          this.omegga.middlePrint(player, this.formattedMessage(`You have <color="#17ad3f">joined</> the RP Chat.`))
+          this.omegga.whisper(player, this.formattedMessage(`You have <color="#17ad3f">joined</> the RP Chat.`))
         }
       })
       .on("leave", async (player: OmeggaPlayer) => {
