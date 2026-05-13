@@ -39,6 +39,7 @@ export const PLAYER_PREFS_FILE_PATH = "playerRoomPreferences.json";
 export const UPLOADED_LOG_LIST = "uploadedLogList.json";
 export const LORE_FILE_PATH = "lore.json";
 export const DISCONNECTED_PLAYERS_FILE_PATH = "disconnectedPlayers.json";
+export const ERROR_LOG_FILE_PATH = "error.log";
 
 export const fileRegex =
   /^(SPACE|FANTASY)-RPChatLog-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.md$/;
