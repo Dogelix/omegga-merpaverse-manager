@@ -1,9 +1,16 @@
-import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer } from 'omegga';
-import CooldownProvider from './util.cooldown.js';
-import fs from 'fs';
-import { Config, Storage, Rooms, LORE_FILE_PATH, DISCONNECTED_PLAYERS_FILE_PATH, ERROR_LOG_FILE_PATH } from './types';
-import { RPChatLogger, galacticTimeNow } from './rpchat-logger';
-import { sendMessageViaWebhook } from './util.webhook';
+import { OmeggaPlugin, OL, PS, PC, OmeggaPlayer } from "omegga";
+import CooldownProvider from "./util.cooldown.js";
+import fs from "fs";
+import {
+  Config,
+  Storage,
+  Rooms,
+  LORE_FILE_PATH,
+  DISCONNECTED_PLAYERS_FILE_PATH,
+  ERROR_LOG_FILE_PATH,
+} from "./types";
+import { RPChatLogger, galacticTimeNow } from "./rpchat-logger";
+import { sendMessageViaWebhook } from "./util.webhook";
 
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
   omegga: OL;
@@ -32,10 +39,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     return `[<b><color="#d41c1c">MERPaverse Manager</></>] ${msg}`;
   }
 
-  private logError(context: string, err: any) {
+  private logError(context: string, err: any, other?: any) {
     const timestamp = new Date().toISOString();
     const stack = err?.stack ?? "(no stack)";
-    const line = `[${timestamp}] [${context}] ${err?.message ?? err}\n${stack}\n\n`;
+    const line = `[${timestamp}] [${context}] ${err?.message ?? err}\n${stack}\n\n ${other && JSON.stringify(other)}`;
     try {
       fs.appendFileSync(ERROR_LOG_FILE_PATH, line, "utf-8");
     } catch {
@@ -58,71 +65,122 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     // Restore disconnected players that haven't expired yet
     const now = Date.now();
     const loaded = this.loadDisconnectedPlayers();
-    const stillValid = loaded.filter(e => (e.disconnectedAt + this.RP_CHAT_EXPIRY_MS) > now);
+    const stillValid = loaded.filter(
+      (e) => e.disconnectedAt + this.RP_CHAT_EXPIRY_MS > now,
+    );
     if (stillValid.length < loaded.length) {
       this.saveDisconnectedPlayers(stillValid);
     }
     this.store.set("disconnectedRPChatPlayers", stillValid);
-    this.store.set("playersInRPChat", stillValid.map(e => e.playerId));
+    this.store.set(
+      "playersInRPChat",
+      stillValid.map((e) => e.playerId),
+    );
     for (const entry of stillValid) {
-      const remainingMs = (entry.disconnectedAt + this.RP_CHAT_EXPIRY_MS) - now;
+      const remainingMs = entry.disconnectedAt + this.RP_CHAT_EXPIRY_MS - now;
       this.scheduleRPChatExpiry(entry.playerId, remainingMs);
     }
 
-    const flushIntervalMs = Math.max(this.config.rpChatLogTimeoutMins * 60 * 1000, 0);
-    this.rpChatLogger = new RPChatLogger(this.omegga, this.config, this.store, this.merpaverseColour, flushIntervalMs);
+    const flushIntervalMs = Math.max(
+      this.config.rpChatLogTimeoutMins * 60 * 1000,
+      0,
+    );
+    this.rpChatLogger = new RPChatLogger(
+      this.omegga,
+      this.config,
+      this.store,
+      this.merpaverseColour,
+      flushIntervalMs,
+    );
 
-    const playerPrefs = await this.rpChatLogger.getStoredPlayerRoomPreferences();
+    const playerPrefs =
+      await this.rpChatLogger.getStoredPlayerRoomPreferences();
     this.store.set("playerRoomPreferences", playerPrefs);
 
     const duration = Math.max(this.config.cooldown * 1000, 0);
     const cooldown = duration <= 0 ? () => true : CooldownProvider(duration);
 
     if (this.config.rpChatLogWebhookUrl) {
-      await sendMessageViaWebhook(this.config.rpChatLogWebhookUrl, `🤖 **MERPaverse** Manager initialized! 🤖`);
+      await sendMessageViaWebhook(
+        this.config.rpChatLogWebhookUrl,
+        `🤖 **MERPaverse** Manager initialized! 🤖`,
+      );
 
       if (this.config.uploadFiles) {
         if (this.config.fileFileAlternateWebhookUrl) {
-          await sendMessageViaWebhook(this.config.rpChatLogWebhookUrl, `⚠️ Files will be uploaded to alternate channel ⚠️`);
+          await sendMessageViaWebhook(
+            this.config.rpChatLogWebhookUrl,
+            `⚠️ Files will be uploaded to alternate channel ⚠️`,
+          );
           if (this.config.sendChatAsWellAsFiles) {
-            await sendMessageViaWebhook(this.config.rpChatLogWebhookUrl, `ℹ️ sendChatAsWellAsFiles is enabled, chat messages will also be sent. ℹ️`);
-            await sendMessageViaWebhook(this.config.rpChatLogWebhookUrl, `⚠️ Chat cache size: ${this.config.rpChatLogCacheSize} ⚠️`);
-            await sendMessageViaWebhook(this.config.rpChatLogWebhookUrl, `⚠️ Chat timeout (mins): ${this.config.rpChatLogTimeoutMins ?? 5} ⚠️`);
+            await sendMessageViaWebhook(
+              this.config.rpChatLogWebhookUrl,
+              `ℹ️ sendChatAsWellAsFiles is enabled, chat messages will also be sent. ℹ️`,
+            );
+            await sendMessageViaWebhook(
+              this.config.rpChatLogWebhookUrl,
+              `⚠️ Chat cache size: ${this.config.rpChatLogCacheSize} ⚠️`,
+            );
+            await sendMessageViaWebhook(
+              this.config.rpChatLogWebhookUrl,
+              `⚠️ Chat timeout (mins): ${this.config.rpChatLogTimeoutMins ?? 5} ⚠️`,
+            );
           }
         }
       } else {
-        await sendMessageViaWebhook(this.config.rpChatLogWebhookUrl, `⚠️ Chat cache size: ${this.config.rpChatLogCacheSize} ⚠️`);
-        await sendMessageViaWebhook(this.config.rpChatLogWebhookUrl, `⚠️ Chat timeout (mins): ${this.config.rpChatLogTimeoutMins ?? 5} ⚠️`);
+        await sendMessageViaWebhook(
+          this.config.rpChatLogWebhookUrl,
+          `⚠️ Chat cache size: ${this.config.rpChatLogCacheSize} ⚠️`,
+        );
+        await sendMessageViaWebhook(
+          this.config.rpChatLogWebhookUrl,
+          `⚠️ Chat timeout (mins): ${this.config.rpChatLogTimeoutMins ?? 5} ⚠️`,
+        );
       }
     }
 
     const authorized = (name: string) => {
       const player = this.omegga.getPlayer(name);
       return (
-        !this.config['only-authorized'] ||
+        !this.config["only-authorized"] ||
         player.isHost() ||
-        this.config['authorized-users'].some(p => player.id === p.id) ||
-        player.getRoles().some(role => this.config['authorized-roles'].includes(role))
+        this.config["authorized-users"].some((p) => player.id === p.id) ||
+        player
+          .getRoles()
+          .some((role) => this.config["authorized-roles"].includes(role))
       );
     };
 
     this.omegga
       .on("join", async (player: OmeggaPlayer) => {
         try {
-          const disconnected = await this.store.get("disconnectedRPChatPlayers") ?? [];
-          if (disconnected.some(e => e.playerId === player.id)) {
+          const disconnected =
+            (await this.store.get("disconnectedRPChatPlayers")) ?? [];
+          if (disconnected.some((e) => e.playerId === player.id)) {
             if (this.disconnectTimeouts.has(player.id)) {
               clearTimeout(this.disconnectTimeouts.get(player.id));
               this.disconnectTimeouts.delete(player.id);
             }
-            const updatedDisconnected = disconnected.filter(e => e.playerId !== player.id);
+            const updatedDisconnected = disconnected.filter(
+              (e) => e.playerId !== player.id,
+            );
             this.store.set("disconnectedRPChatPlayers", updatedDisconnected);
             this.saveDisconnectedPlayers(updatedDisconnected);
-            this.omegga.whisper(player, this.formattedMessage(`You have <color="#17ad3f">joined</> the RP Chat.`))
+            this.omegga.whisper(
+              player,
+              this.formattedMessage(
+                `You have <color="#17ad3f">joined</> the RP Chat.`,
+              ),
+            );
           }
         } catch (err: any) {
           this.logError("join", err);
-          this.omegga.whisper(player, this.formattedErrorMessage("Something went wrong. Please try again or contact a GM."));
+          this.omegga.whisper(
+            player,
+            this.formattedErrorMessage(
+              "Something went wrong. Please try again or contact a GM.",
+            ),
+          );
         }
       })
       .on("leave", async (player: OmeggaPlayer) => {
@@ -131,9 +189,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           const players = await this.store.get("playersInRPChat");
           if (players.includes(player.id)) {
             // Keep in playersInRPChat — mark disconnected and start 1-hour expiry
-            const disconnected = await this.store.get("disconnectedRPChatPlayers") ?? [];
-            if (!disconnected.some(e => e.playerId === player.id)) {
-              const updatedDisconnected = [...disconnected, { playerId: player.id, disconnectedAt: Date.now() }];
+            const disconnected =
+              (await this.store.get("disconnectedRPChatPlayers")) ?? [];
+            if (!disconnected.some((e) => e.playerId === player.id)) {
+              const updatedDisconnected = [
+                ...disconnected,
+                { playerId: player.id, disconnectedAt: Date.now() },
+              ];
               this.store.set("disconnectedRPChatPlayers", updatedDisconnected);
               this.saveDisconnectedPlayers(updatedDisconnected);
             }
@@ -141,7 +203,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           }
         } catch (err: any) {
           this.logError("leave", err);
-          this.omegga.whisper(player, this.formattedErrorMessage("Something went wrong. Please try again or contact a GM."));
+          this.omegga.whisper(
+            player,
+            this.formattedErrorMessage(
+              "Something went wrong. Please try again or contact a GM.",
+            ),
+          );
         }
       })
       .on("chat", async (name: string, message: string) => {
@@ -154,10 +221,15 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           }
         } catch (err: any) {
           this.logError("chat", err);
-          this.omegga.whisper(player, this.formattedErrorMessage("Something went wrong. Please try again or contact a GM."));
+          this.omegga.whisper(
+            player,
+            this.formattedErrorMessage(
+              "Something went wrong. Please try again or contact a GM.",
+            ),
+          );
         }
       })
-      .on("cmd:me", async (name: string, ...args) => {
+      .on("cmd:me", async (name: string, ...args: any[]) => {
         const player = this.omegga.getPlayer(name);
         if (!player) return;
         try {
@@ -166,25 +238,37 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             return;
           }
           if (!cooldown(name)) {
-            this.omegga.whisper(player, this.formattedMessage("Commands on cooldown."));
+            this.omegga.whisper(
+              player,
+              this.formattedMessage("Commands on cooldown."),
+            );
             return;
           }
 
           const roomPrefs = await this.store.get("playerRoomPreferences");
-          const playerPref = roomPrefs.find(e => e.playerId == player.id);
+          const playerPref = roomPrefs.find((e) => e.playerId == player.id);
           if (playerPref === undefined) {
             await this.rpChatLogger.updatePlayerRoomPref(player, Rooms.space);
           }
 
-          const message = OMEGGA_UTIL.chat.parseLinks(OMEGGA_UTIL.chat.sanitize(args.join(" ")));
-          this.omegga.broadcast(`<b><color="${player.getNameColor()}">${player.name}</></> (<b>RP Command</>) ${message}`);
+          const message = OMEGGA_UTIL.chat.parseLinks(
+            OMEGGA_UTIL.chat.sanitize(args.join(" ")),
+          );
+          this.omegga.broadcast(
+            `<b><color="${player.getNameColor()}">${player.name}</></> (<b>RP Command</>) ${message}`,
+          );
           this.rpChatLogger.handleRPChatMessages(player, message);
         } catch (err: any) {
           this.logError("cmd:me", err);
-          this.omegga.whisper(player, this.formattedErrorMessage("Something went wrong. Please try again or contact a GM."));
+          this.omegga.whisper(
+            player,
+            this.formattedErrorMessage(
+              "Something went wrong. Please try again or contact a GM.",
+            ),
+          );
         }
       })
-      .on("cmd:dmerp", async (name: string, option: string, ...args) => {
+      .on("cmd:dmerp", async (name: string, option: string, ...args: any[]) => {
         const player = this.omegga.getPlayer(name);
         if (!player) return;
         try {
@@ -193,7 +277,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             return;
           }
           if (!cooldown(name)) {
-            this.omegga.whisper(player, this.formattedMessage("Commands on cooldown."));
+            this.omegga.whisper(
+              player,
+              this.formattedMessage("Commands on cooldown."),
+            );
             return;
           }
 
@@ -206,14 +293,22 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
               break;
             case "s":
             case "stat":
-              this.omegga.whisper(player, this.formattedMessage("Stat command deprecated."));
+              this.omegga.whisper(
+                player,
+                this.formattedMessage("Stat command deprecated."),
+              );
               break;
             case "c":
             case "combat":
               const av = Number.parseInt(args[0]);
               const ap = Number.parseInt(args[1]);
               if (Number.isNaN(av) || Number.isNaN(ap)) {
-                this.omegga.whisper(player, this.formattedMessage("AV or AP was not a <b>WHOLE</b> number."));
+                this.omegga.whisper(
+                  player,
+                  this.formattedMessage(
+                    "AV or AP was not a <b>WHOLE</b> number.",
+                  ),
+                );
                 return;
               }
               this.cmdCombatRoll(player, av, ap);
@@ -234,11 +329,20 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
               break;
           }
         } catch (err: any) {
-          this.logError("cmd:dmerp", err);
-          this.omegga.whisper(player, this.formattedErrorMessage("Something went wrong. Please try again or contact a GM."));
+          this.logError("cmd:dmerp", err, {
+            name: name,
+            option: option,
+            args: args,
+          });
+          this.omegga.whisper(
+            player,
+            this.formattedErrorMessage(
+              "Something went wrong. Please try again or contact a GM.",
+            ),
+          );
         }
       })
-      .on("cmd:ooc", async (name: string, ...contents) => {
+      .on("cmd:ooc", async (name: string, ...contents: any[]) => {
         const player = this.omegga.getPlayer(name);
         if (!player) return;
         try {
@@ -252,18 +356,28 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             const colour = player.getNameColor();
             this.omegga.broadcast(
               `[<b><color="${this.merpaverseColour}">OOC</></>] <color="${colour}">${player.name}</>: ` +
-              OMEGGA_UTIL.chat.parseLinks(OMEGGA_UTIL.chat.sanitize(contents.join(" ")))
+                OMEGGA_UTIL.chat.parseLinks(
+                  OMEGGA_UTIL.chat.sanitize(contents.join(" ")),
+                ),
             );
           } else {
-            this.omegga.whisper(player, this.formattedMessage("Not in RP Chat"));
+            this.omegga.whisper(
+              player,
+              this.formattedMessage("Not in RP Chat"),
+            );
           }
         } catch (err: any) {
           this.logError("cmd:ooc", err);
-          this.omegga.whisper(player, this.formattedErrorMessage("Something went wrong. Please try again or contact a GM."));
+          this.omegga.whisper(
+            player,
+            this.formattedErrorMessage(
+              "Something went wrong. Please try again or contact a GM.",
+            ),
+          );
         }
       });
 
-    return { registeredCommands: ['ooc', "dmerp", "me", "uploadLogs"] };
+    return { registeredCommands: ["ooc", "dmerp", "me", "uploadLogs"] };
   }
 
   async cmdHelp(player: OmeggaPlayer) {
@@ -295,10 +409,15 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       ];
 
       this.omegga.whisper(player, this.formattedMessage("Command list:"));
-      commandsList.map(message => this.omegga.whisper(player, message));
+      commandsList.map((message) => this.omegga.whisper(player, message));
     } catch (err: any) {
       this.logError("cmdHelp", err);
-      this.omegga.whisper(player, this.formattedErrorMessage("Something went wrong. Please try again or contact a GM."));
+      this.omegga.whisper(
+        player,
+        this.formattedErrorMessage(
+          "Something went wrong. Please try again or contact a GM.",
+        ),
+      );
     }
   }
 
@@ -307,8 +426,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       let players = await this.store.get("playersInRPChat");
 
       if (!option) {
-        this.omegga.whisper(player, this.formattedMessage("Option <b>required</> for RP Command"));
-        console.warn(player.name + " tried to do the RP command without an option.");
+        this.omegga.whisper(
+          player,
+          this.formattedMessage("Option <b>required</> for RP Command"),
+        );
+        console.warn(
+          player.name + " tried to do the RP command without an option.",
+        );
         return;
       }
 
@@ -316,7 +440,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
       if (["join", "j"].includes(opt)) {
         if (players.includes(player.id)) {
-          this.omegga.whisper(player, this.formattedMessage("You are already in the RP chat"));
+          this.omegga.whisper(
+            player,
+            this.formattedMessage("You are already in the RP chat"),
+          );
           return;
         }
 
@@ -324,43 +451,64 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         console.log(`Player ${player.name} has joined RP Chat.`);
 
         const roomPrefs = await this.store.get("playerRoomPreferences");
-        const playerPref = roomPrefs.find(e => e.playerId == player.id);
+        const playerPref = roomPrefs.find((e) => e.playerId == player.id);
         if (playerPref === undefined) {
           await this.rpChatLogger.updatePlayerRoomPref(player, Rooms.space);
         }
 
         this.store.set("playersInRPChat", players);
-        this.omegga.whisper(player, this.formattedMessage(`You have <color="#17ad3f">joined</> the RP Chat.`));
+        this.omegga.whisper(
+          player,
+          this.formattedMessage(
+            `You have <color="#17ad3f">joined</> the RP Chat.`,
+          ),
+        );
         playerPref?.room == Rooms.fantasy
-          ? this.omegga.whisper(player, this.formattedMessage("You have joined the <b>Fantasy</> room."))
-          : this.omegga.whisper(player, this.formattedMessage("You have joined the <b>Space</> room."));
-
+          ? this.omegga.whisper(
+              player,
+              this.formattedMessage("You have joined the <b>Fantasy</> room."),
+            )
+          : this.omegga.whisper(
+              player,
+              this.formattedMessage("You have joined the <b>Space</> room."),
+            );
       } else if (["leave", "l"].includes(opt)) {
-        players = players.filter(e => e != player.id);
+        players = players.filter((e) => e != player.id);
         this.store.set("playersInRPChat", players);
         console.log(`Player ${player.name} has left RP Chat.`);
-        this.omegga.whisper(player, this.formattedMessage(`You have <color="#ad1313">left</> the RP Chat.`));
+        this.omegga.whisper(
+          player,
+          this.formattedMessage(
+            `You have <color="#ad1313">left</> the RP Chat.`,
+          ),
+        );
         if (players.length < 1) {
           this.rpChatLogger.closeRPChatLogs();
         }
-
       } else if (["info", "i"].includes(opt)) {
-        this.omegga.whisper(player, this.formattedMessage("Players currently in RP Chat:"));
+        this.omegga.whisper(
+          player,
+          this.formattedMessage("Players currently in RP Chat:"),
+        );
         players.map((p) => {
           const pPlayer = this.omegga.getPlayer(p);
           if (!pPlayer) return;
-          this.omegga.whisper(player, `<color="${pPlayer.getNameColor()}">${pPlayer.name}</>`);
+          this.omegga.whisper(
+            player,
+            `<color="${pPlayer.getNameColor()}">${pPlayer.name}</>`,
+          );
         });
-
       } else if (["clear", "c"].includes(opt)) {
         if (player.getRoles().includes("GM")) {
           this.store.set("playersInRPChat", []);
           this.rpChatLogger.closeRPChatLogs();
-          this.omegga.whisper(player, this.formattedMessage("RP Chat cleared."));
+          this.omegga.whisper(
+            player,
+            this.formattedMessage("RP Chat cleared."),
+          );
         } else {
           this.omegga.whisper(player, this.formattedMessage("Unauthorised"));
         }
-
       } else if (["space", "s"].includes(opt)) {
         this.rpChatLogger.updatePlayerRoomPref(player, Rooms.space);
       } else if (["fantasy", "f"].includes(opt)) {
@@ -368,74 +516,137 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       }
     } catch (err: any) {
       this.logError("cmdHandleRPOptions", err);
-      this.omegga.whisper(player, this.formattedErrorMessage("Something went wrong. Please try again or contact a GM."));
+      this.omegga.whisper(
+        player,
+        this.formattedErrorMessage(
+          "Something went wrong. Please try again or contact a GM.",
+        ),
+      );
     }
   }
 
   async cmdCombatRoll(player: OmeggaPlayer, av: number, ap: number) {
     try {
       const player1Name = `<color="${player.getNameColor()}">${player.name}</>`;
-      this.omegga.broadcast(this.formattedMessage(`${player1Name} is making a combat roll (attacking).`));
+      this.omegga.broadcast(
+        this.formattedMessage(
+          `${player1Name} is making a combat roll (attacking).`,
+        ),
+      );
 
       let attacker = this.getRandomInt(3, 18);
       const defender = this.getRandomInt(3, 18);
 
       if (ap > av) {
         const difference = ap - av;
-        this.omegga.broadcast(this.formattedMessage(`<color="#de6b00">AP</> > <color="#dbc60b">AV</> applying a +${difference} to attacker roll.`));
+        this.omegga.broadcast(
+          this.formattedMessage(
+            `<color="#de6b00">AP</> > <color="#dbc60b">AV</> applying a +${difference} to attacker roll.`,
+          ),
+        );
         attacker = Math.min(attacker + difference, 18);
       }
 
       if (attacker === 3) {
-        this.omegga.broadcast(this.formattedMessage(`${player1Name} rolled a <b>Critical Fail</>. No damage taken.`));
+        this.omegga.broadcast(
+          this.formattedMessage(
+            `${player1Name} rolled a <b>Critical Fail</>. No damage taken.`,
+          ),
+        );
       } else if (defender === 3) {
-        this.omegga.broadcast(this.formattedMessage(`Defender rolled a <b>Critical Fail</>. Double damage taken.`));
+        this.omegga.broadcast(
+          this.formattedMessage(
+            `Defender rolled a <b>Critical Fail</>. Double damage taken.`,
+          ),
+        );
       } else if (attacker === 18) {
         const critDamage = ap + 1;
-        this.omegga.broadcast(this.formattedMessage(`${player1Name} rolled a <b>Critical Hit</>. Damage resolved at ${critDamage > 8 ? "Double Damage" : `<color="#de6b00">AP</>: ${critDamage}`}.`));
+        this.omegga.broadcast(
+          this.formattedMessage(
+            `${player1Name} rolled a <b>Critical Hit</>. Damage resolved at ${critDamage > 8 ? "Double Damage" : `<color="#de6b00">AP</>: ${critDamage}`}.`,
+          ),
+        );
       } else if (defender >= attacker) {
-        this.omegga.broadcast(this.formattedMessage(`${player1Name}: ${attacker} vs. Defender: ${defender}. No damage taken.`));
+        this.omegga.broadcast(
+          this.formattedMessage(
+            `${player1Name}: ${attacker} vs. Defender: ${defender}. No damage taken.`,
+          ),
+        );
       } else {
-        this.omegga.broadcast(this.formattedMessage(`${player1Name}: ${attacker} vs. Defender: ${defender}. Damage taken.`));
+        this.omegga.broadcast(
+          this.formattedMessage(
+            `${player1Name}: ${attacker} vs. Defender: ${defender}. Damage taken.`,
+          ),
+        );
       }
     } catch (err: any) {
       this.logError("cmdCombatRoll", err);
-      this.omegga.whisper(player, this.formattedErrorMessage("Something went wrong. Please try again or contact a GM."));
+      this.omegga.whisper(
+        player,
+        this.formattedErrorMessage(
+          "Something went wrong. Please try again or contact a GM.",
+        ),
+      );
     }
   }
 
-  private parseDice(notation: string): { rolls: number[]; modifier: number; total: number } | null {
+  private parseDice(
+    notation: string,
+  ): { rolls: number[]; modifier: number; total: number } | null {
     const match = notation?.match(/^(\d*)d(\d+)([+-]\d+)?$/i);
     if (!match) return null;
-    const count = Math.max(1, parseInt(match[1] || '1'));
+    const count = Math.max(1, parseInt(match[1] || "1"));
     const sides = parseInt(match[2]);
-    const modifier = parseInt(match[3] || '0');
+    const modifier = parseInt(match[3] || "0");
     if (count > 20 || sides < 2 || sides > 1000) return null;
-    const rolls = Array.from({ length: count }, () => this.getRandomInt(1, sides));
-    return { rolls, modifier, total: rolls.reduce((a, b) => a + b, 0) + modifier };
+    const rolls = Array.from({ length: count }, () =>
+      this.getRandomInt(1, sides),
+    );
+    return {
+      rolls,
+      modifier,
+      total: rolls.reduce((a, b) => a + b, 0) + modifier,
+    };
   }
 
   cmdRoll(player: OmeggaPlayer, notation: string) {
     try {
       if (!notation) {
-        this.omegga.whisper(player, this.formattedMessage("Usage: <b>/dmerp roll 2d6+3</>"));
+        this.omegga.whisper(
+          player,
+          this.formattedMessage("Usage: <b>/dmerp roll 2d6+3</>"),
+        );
         return;
       }
       const result = this.parseDice(notation);
       if (!result) {
-        this.omegga.whisper(player, this.formattedMessage(`Invalid dice notation: <b>${notation}</>. Example: <b>2d6+3</>`));
+        this.omegga.whisper(
+          player,
+          this.formattedMessage(
+            `Invalid dice notation: <b>${notation}</>. Example: <b>2d6+3</>`,
+          ),
+        );
         return;
       }
       const { rolls, modifier, total } = result;
-      const rollsStr = rolls.length > 1 ? `[${rolls.join(", ")}]` : `${rolls[0]}`;
-      const modStr = modifier !== 0 ? ` ${modifier > 0 ? "+" : ""}${modifier}` : "";
+      const rollsStr =
+        rolls.length > 1 ? `[${rolls.join(", ")}]` : `${rolls[0]}`;
+      const modStr =
+        modifier !== 0 ? ` ${modifier > 0 ? "+" : ""}${modifier}` : "";
       const player1Name = `<color="${player.getNameColor()}">${player.name}</>`;
-      this.omegga.broadcast(this.formattedMessage(
-        `${player1Name} rolled <b>${notation}</>: ${rollsStr}${modStr} = <b>${total}</>`
-      ));
+      this.omegga.broadcast(
+        this.formattedMessage(
+          `${player1Name} rolled <b>${notation}</>: ${rollsStr}${modStr} = <b>${total}</>`,
+        ),
+      );
     } catch (err: any) {
       this.logError("cmdRoll", err);
-      this.omegga.whisper(player, this.formattedErrorMessage("Something went wrong. Please try again or contact a GM."));
+      this.omegga.whisper(
+        player,
+        this.formattedErrorMessage(
+          "Something went wrong. Please try again or contact a GM.",
+        ),
+      );
     }
   }
 
@@ -446,73 +657,110 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
       if (sub === "roll") {
         const roll = this.getRandomInt(1, 20);
-        const order = await this.store.get("initiativeOrder") ?? [];
-        const updated = order.filter(e => e.playerId !== player.id);
+        const order = (await this.store.get("initiativeOrder")) ?? [];
+        const updated = order.filter((e) => e.playerId !== player.id);
         updated.push({ playerId: player.id, playerName: player.name, roll });
         updated.sort((a, b) => b.roll - a.roll);
         this.store.set("initiativeOrder", updated);
         this.store.set("currentInitiativeTurn", 0);
         const player1Name = `<color="${player.getNameColor()}">${player.name}</>`;
-        this.omegga.broadcast(this.formattedMessage(`${player1Name} rolled initiative: <b>${roll}</>`));
-
+        this.omegga.broadcast(
+          this.formattedMessage(
+            `${player1Name} rolled initiative: <b>${roll}</>`,
+          ),
+        );
       } else if (sub === "list" || sub === "l") {
-        const order = await this.store.get("initiativeOrder") ?? [];
+        const order = (await this.store.get("initiativeOrder")) ?? [];
         if (order.length === 0) {
-          this.omegga.whisper(player, this.formattedMessage("No initiative rolls yet."));
+          this.omegga.whisper(
+            player,
+            this.formattedMessage("No initiative rolls yet."),
+          );
           return;
         }
-        const turn = await this.store.get("currentInitiativeTurn") ?? 0;
+        const turn = (await this.store.get("currentInitiativeTurn")) ?? 0;
         this.omegga.whisper(player, this.formattedMessage("Initiative order:"));
         order.forEach((entry, i) => {
           const marker = i === turn ? " <b>◀ current</>" : "";
-          this.omegga.whisper(player, `  ${i + 1}. ${entry.playerName} — <b>${entry.roll}</>${marker}`);
+          this.omegga.whisper(
+            player,
+            `  ${i + 1}. ${entry.playerName} — <b>${entry.roll}</>${marker}`,
+          );
         });
-
       } else if (sub === "next" || sub === "n") {
         if (!isGM) {
-          this.omegga.whisper(player, this.formattedMessage("Only GMs can advance the turn."));
+          this.omegga.whisper(
+            player,
+            this.formattedMessage("Only GMs can advance the turn."),
+          );
           return;
         }
-        const order = await this.store.get("initiativeOrder") ?? [];
+        const order = (await this.store.get("initiativeOrder")) ?? [];
         if (order.length === 0) {
-          this.omegga.whisper(player, this.formattedMessage("No initiative rolls yet."));
+          this.omegga.whisper(
+            player,
+            this.formattedMessage("No initiative rolls yet."),
+          );
           return;
         }
-        const turn = await this.store.get("currentInitiativeTurn") ?? 0;
+        const turn = (await this.store.get("currentInitiativeTurn")) ?? 0;
         const next = (turn + 1) % order.length;
         this.store.set("currentInitiativeTurn", next);
         const current = order[next];
-        this.omegga.broadcast(this.formattedMessage(`It is now <b>${current.playerName}</b>'s turn.`));
-
+        this.omegga.broadcast(
+          this.formattedMessage(
+            `It is now <b>${current.playerName}</b>'s turn.`,
+          ),
+        );
       } else if (sub === "clear" || sub === "c") {
         if (!isGM) {
-          this.omegga.whisper(player, this.formattedMessage("Only GMs can clear initiative."));
+          this.omegga.whisper(
+            player,
+            this.formattedMessage("Only GMs can clear initiative."),
+          );
           return;
         }
         this.store.set("initiativeOrder", []);
         this.store.set("currentInitiativeTurn", 0);
-        this.omegga.broadcast(this.formattedMessage("Initiative order cleared."));
-
+        this.omegga.broadcast(
+          this.formattedMessage("Initiative order cleared."),
+        );
       } else {
-        this.omegga.whisper(player, this.formattedMessage("Usage: <b>/dmerp initiative [roll|list|next|clear]</>"));
+        this.omegga.whisper(
+          player,
+          this.formattedMessage(
+            "Usage: <b>/dmerp initiative [roll|list|next|clear]</>",
+          ),
+        );
       }
     } catch (err: any) {
       this.logError("cmdInitiative", err);
-      this.omegga.whisper(player, this.formattedErrorMessage("Something went wrong. Please try again or contact a GM."));
+      this.omegga.whisper(
+        player,
+        this.formattedErrorMessage(
+          "Something went wrong. Please try again or contact a GM.",
+        ),
+      );
     }
   }
 
   cmdLore(player: OmeggaPlayer, topic: string) {
     try {
       if (!topic) {
-        this.omegga.whisper(player, this.formattedMessage("Usage: <b>/dmerp lore &lt;topic&gt;</>"));
+        this.omegga.whisper(
+          player,
+          this.formattedMessage("Usage: <b>/dmerp lore &lt;topic&gt;</>"),
+        );
         return;
       }
       let entries: Record<string, string>;
       try {
         entries = JSON.parse(fs.readFileSync(LORE_FILE_PATH, "utf-8"));
       } catch {
-        this.omegga.whisper(player, this.formattedMessage("Lore file not found or invalid."));
+        this.omegga.whisper(
+          player,
+          this.formattedMessage("Lore file not found or invalid."),
+        );
         return;
       }
 
@@ -524,77 +772,143 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         return;
       }
 
-      const key = Object.keys(entries).find(k => k.toLowerCase() === topic.toLowerCase());
+      const key = Object.keys(entries).find(
+        (k) => k.toLowerCase() === topic.toLowerCase(),
+      );
       if (!key) {
         const available = Object.keys(entries).join(", ");
-        this.omegga.whisper(player, this.formattedMessage(`Unknown topic <b>${topic}</>. Available: ${available}`));
+        this.omegga.whisper(
+          player,
+          this.formattedMessage(
+            `Unknown topic <b>${topic}</>. Available: ${available}`,
+          ),
+        );
         return;
       }
       this.omegga.whisper(player, this.formattedMessage(`<b>${key}</>:`));
       this.omegga.whisper(player, entries[key]);
     } catch (err: any) {
       this.logError("cmdLore", err);
-      this.omegga.whisper(player, this.formattedErrorMessage("Something went wrong. Please try again or contact a GM."));
+      this.omegga.whisper(
+        player,
+        this.formattedErrorMessage(
+          "Something went wrong. Please try again or contact a GM.",
+        ),
+      );
     }
   }
 
-  async cmdTime(player: OmeggaPlayer, subCmd: string, yearArg: string, dayArg: string, hourArg: string) {
+  async cmdTime(
+    player: OmeggaPlayer,
+    subCmd: string,
+    yearArg: string,
+    dayArg: string,
+    hourArg: string,
+  ) {
     try {
       const isGM = player.getRoles().includes("GM") || player.isHost();
 
       if (!subCmd || subCmd === "show") {
         const stored = await this.store.get("galacticTime");
         if (!stored) {
-          this.omegga.whisper(player, this.formattedMessage("Galactic time has not been set. A GM must run <b>/dmerp time set &lt;year&gt; &lt;day&gt; &lt;hour&gt;</>"));
+          this.omegga.whisper(
+            player,
+            this.formattedMessage(
+              "Galactic time has not been set. A GM must run <b>/dmerp time set &lt;year&gt; &lt;day&gt; &lt;hour&gt;</>",
+            ),
+          );
           return;
         }
         const { year, day, hour } = galacticTimeNow(stored);
         const pad = (n: number) => n.toString().padStart(2, "0");
-        this.omegga.whisper(player, this.formattedMessage(
-          `<b>Galactic Standard Time</> — Year <b>${year}</>, Day <b>${pad(day)}</>, Hour <b>${pad(hour)}:00 GST</>`
-        ));
-
+        this.omegga.whisper(
+          player,
+          this.formattedMessage(
+            `<b>Galactic Standard Time</> — Year <b>${year}</>, Day <b>${pad(day)}</>, Hour <b>${pad(hour)}:00 GST</>`,
+          ),
+        );
       } else if (subCmd === "set") {
         if (!isGM) {
-          this.omegga.whisper(player, this.formattedMessage("Only GMs can set galactic time."));
+          this.omegga.whisper(
+            player,
+            this.formattedMessage("Only GMs can set galactic time."),
+          );
           return;
         }
         const year = parseInt(yearArg);
-        const day  = parseInt(dayArg);
+        const day = parseInt(dayArg);
         const hour = parseInt(hourArg);
-        if (isNaN(year) || isNaN(day) || isNaN(hour) || day < 1 || day > 365 || hour < 0 || hour > 23) {
-          this.omegga.whisper(player, this.formattedMessage("Usage: <b>/dmerp time set &lt;year&gt; &lt;day 1-365&gt; &lt;hour 0-23&gt;</>"));
+        if (
+          isNaN(year) ||
+          isNaN(day) ||
+          isNaN(hour) ||
+          day < 1 ||
+          day > 365 ||
+          hour < 0 ||
+          hour > 23
+        ) {
+          this.omegga.whisper(
+            player,
+            this.formattedMessage(
+              "Usage: <b>/dmerp time set &lt;year&gt; &lt;day 1-365&gt; &lt;hour 0-23&gt;</>",
+            ),
+          );
           return;
         }
         this.store.set("galacticTime", { year, day, hour, setAt: Date.now() });
         const pad = (n: number) => n.toString().padStart(2, "0");
-        this.omegga.broadcast(this.formattedMessage(
-          `Galactic time set — Year <b>${year}</>, Day <b>${pad(day)}</>, Hour <b>${pad(hour)}:00 GST</>`
-        ));
-
+        this.omegga.broadcast(
+          this.formattedMessage(
+            `Galactic time set — Year <b>${year}</>, Day <b>${pad(day)}</>, Hour <b>${pad(hour)}:00 GST</>`,
+          ),
+        );
       } else {
-        this.omegga.whisper(player, this.formattedMessage("Usage: <b>/dmerp time [set &lt;year&gt; &lt;day&gt; &lt;hour&gt;]</>"));
+        this.omegga.whisper(
+          player,
+          this.formattedMessage(
+            "Usage: <b>/dmerp time [set &lt;year&gt; &lt;day&gt; &lt;hour&gt;]</>",
+          ),
+        );
       }
     } catch (err: any) {
       this.logError("cmdTime", err);
-      this.omegga.whisper(player, this.formattedErrorMessage("Something went wrong. Please try again or contact a GM."));
+      this.omegga.whisper(
+        player,
+        this.formattedErrorMessage(
+          "Something went wrong. Please try again or contact a GM.",
+        ),
+      );
     }
   }
 
-  private loadDisconnectedPlayers(): { playerId: string; disconnectedAt: number }[] {
+  private loadDisconnectedPlayers(): {
+    playerId: string;
+    disconnectedAt: number;
+  }[] {
     try {
-      return JSON.parse(fs.readFileSync(DISCONNECTED_PLAYERS_FILE_PATH, "utf-8"));
+      return JSON.parse(
+        fs.readFileSync(DISCONNECTED_PLAYERS_FILE_PATH, "utf-8"),
+      );
     } catch (err: any) {
       if (err.code === "ENOENT") return [];
       throw err;
     }
   }
 
-  private saveDisconnectedPlayers(entries: { playerId: string; disconnectedAt: number }[]) {
-    fs.writeFileSync(DISCONNECTED_PLAYERS_FILE_PATH, JSON.stringify(entries), "utf-8");
+  private saveDisconnectedPlayers(
+    entries: { playerId: string; disconnectedAt: number }[],
+  ) {
+    fs.writeFileSync(
+      DISCONNECTED_PLAYERS_FILE_PATH,
+      JSON.stringify(entries),
+      "utf-8",
+    );
   }
 
-  private scheduleRPChatExpiry(playerId: string, delayMs = this.RP_CHAT_EXPIRY_MS) {
+  private scheduleRPChatExpiry(
+    playerId: string,
+    delayMs = this.RP_CHAT_EXPIRY_MS,
+  ) {
     if (this.disconnectTimeouts.has(playerId)) {
       clearTimeout(this.disconnectTimeouts.get(playerId));
     }
@@ -602,11 +916,14 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       this.disconnectTimeouts.delete(playerId);
 
       const players = await this.store.get("playersInRPChat");
-      const updated = players.filter(e => e !== playerId);
+      const updated = players.filter((e) => e !== playerId);
       this.store.set("playersInRPChat", updated);
 
-      const disconnected = await this.store.get("disconnectedRPChatPlayers") ?? [];
-      const updatedDisconnected = disconnected.filter(e => e.playerId !== playerId);
+      const disconnected =
+        (await this.store.get("disconnectedRPChatPlayers")) ?? [];
+      const updatedDisconnected = disconnected.filter(
+        (e) => e.playerId !== playerId,
+      );
       this.store.set("disconnectedRPChatPlayers", updatedDisconnected);
       this.saveDisconnectedPlayers(updatedDisconnected);
 
