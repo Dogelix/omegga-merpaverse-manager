@@ -269,6 +269,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
       })
       .on("cmd:dmerp", async (name: string, option: string, ...args: any[]) => {
+        args = [...args];
         const player = this.omegga.getPlayer(name);
         if (!player) return;
         try {
