@@ -393,7 +393,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           this.logError("cmd:dmerp", err, {
             name: name,
             option: option,
-            args: args,
+            args: localArgs,
           });
           this.omegga.whisper(
             player,
