@@ -42,7 +42,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   private logError(context: string, err: any, other?: any) {
     const timestamp = new Date().toISOString();
     const stack = err?.stack ?? "(no stack)";
-    const line = `[${timestamp}] [${context}] ${err?.message ?? err}\n${stack}\n\n ${other && JSON.stringify(other)}`;
+    const line = `[${timestamp}] [${context}] ${err?.message ?? err}\n${stack}\n\n ${other && JSON.stringify(other)}\n\n`;
     try {
       fs.appendFileSync(ERROR_LOG_FILE_PATH, line, "utf-8");
     } catch {
@@ -269,7 +269,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
       })
       .on("cmd:dmerp", async (name: string, option: string, ...args: any[]) => {
-        args = [...args];
+        const localArgs = [...args];
         const player = this.omegga.getPlayer(name);
         if (!player) return;
         try {
@@ -290,7 +290,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
               this.cmdHelp(player);
               break;
             case "rp":
-              this.cmdHandleRPOptions(player, args[0]);
+              this.cmdHandleRPOptions(player, localArgs[0]);
               break;
             case "s":
             case "stat":
@@ -301,8 +301,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
               break;
             case "c":
             case "combat":
-              const av = Number.parseInt(args[0]);
-              const ap = Number.parseInt(args[1]);
+              const av = Number.parseInt(localArgs[0]);
+              const ap = Number.parseInt(localArgs[1]);
               if (Number.isNaN(av) || Number.isNaN(ap)) {
                 this.omegga.whisper(
                   player,
@@ -316,17 +316,17 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
               break;
             case "r":
             case "roll":
-              this.cmdRoll(player, args[0]);
+              this.cmdRoll(player, localArgs[0]);
               break;
             case "init":
             case "initiative":
-              this.cmdInitiative(player, args[0]);
+              this.cmdInitiative(player, localArgs[0]);
               break;
             case "lore":
-              this.cmdLore(player, args[0]);
+              this.cmdLore(player, localArgs[0]);
               break;
             case "time":
-              this.cmdTime(player, args[0], args[1], args[2], args[3]);
+              this.cmdTime(player, localArgs[0], localArgs[1], localArgs[2], localArgs[3]);
               break;
           }
         } catch (err: any) {
