@@ -290,6 +290,15 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
               this.cmdHelp(player);
               break;
             case "rp":
+              if (localArgs.length < 1) {
+                this.omegga.whisper(
+                  player,
+                  this.formattedErrorMessage(
+                    "Command requires 1 argument.",
+                  ),
+                );
+                return;
+              }
               this.cmdHandleRPOptions(player, localArgs[0]);
               break;
             case "s":
@@ -301,6 +310,15 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
               break;
             case "c":
             case "combat":
+              if (localArgs.length < 2) {
+                this.omegga.whisper(
+                  player,
+                  this.formattedErrorMessage(
+                    "Command requires 2 arguments.",
+                  ),
+                );
+                return;
+              }
               const av = Number.parseInt(localArgs[0]);
               const ap = Number.parseInt(localArgs[1]);
               if (Number.isNaN(av) || Number.isNaN(ap)) {
@@ -316,17 +334,59 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
               break;
             case "r":
             case "roll":
+              if (localArgs.length < 1) {
+                this.omegga.whisper(
+                  player,
+                  this.formattedErrorMessage(
+                    "Command requires 1 argument.",
+                  ),
+                );
+                return;
+              }
               this.cmdRoll(player, localArgs[0]);
               break;
             case "init":
             case "initiative":
+              if (localArgs.length < 1) {
+                this.omegga.whisper(
+                  player,
+                  this.formattedErrorMessage(
+                    "Command requires 1 argument.",
+                  ),
+                );
+                return;
+              }
               this.cmdInitiative(player, localArgs[0]);
               break;
             case "lore":
+              if (localArgs.length < 1) {
+                this.omegga.whisper(
+                  player,
+                  this.formattedErrorMessage(
+                    "Command requires 1 argument.",
+                  ),
+                );
+                return;
+              }
               this.cmdLore(player, localArgs[0]);
               break;
             case "time":
-              this.cmdTime(player, localArgs[0], localArgs[1], localArgs[2], localArgs[3]);
+              if (localArgs.length < 1) {
+                this.omegga.whisper(
+                  player,
+                  this.formattedErrorMessage(
+                    "Command requires at least 1 argument.",
+                  ),
+                );
+                return;
+              }
+              this.cmdTime(
+                player,
+                localArgs[0],
+                localArgs[1],
+                localArgs[2],
+                localArgs[3],
+              );
               break;
           }
         } catch (err: any) {
