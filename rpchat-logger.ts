@@ -56,7 +56,7 @@ export class RPChatLogger {
 
   async handleRPChatMessages(player: OmeggaPlayer, message: string) {
     const writeToChatLog = async (event: Record<string, string>) => {
-      const roomPrefs = await this.store.get("playerRoomPreferences");
+      const roomPrefs = [...(await this.store.get("playerRoomPreferences"))];
       const playerPref = roomPrefs.find(e => e.playerId == player.id);
 
       const fileName = playerPref.room == Rooms.fantasy
@@ -160,7 +160,7 @@ export class RPChatLogger {
   }
 
   async updatePlayerRoomPref(player: OmeggaPlayer, room: Rooms) {
-    const roomPrefs = await this.store.get("playerRoomPreferences");
+    const roomPrefs = [...(await this.store.get("playerRoomPreferences"))];
     const playerPref = roomPrefs.find(e => e.playerId == player.id);
 
     if (playerPref === undefined) {

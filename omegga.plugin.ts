@@ -155,8 +155,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     this.omegga
       .on("join", async (player: OmeggaPlayer) => {
         try {
-          const disconnected =
-            (await this.store.get("disconnectedRPChatPlayers")) ?? [];
+          const disconnected = [
+            ...((await this.store.get("disconnectedRPChatPlayers")) ?? []),
+          ];
           if (disconnected.some((e) => e.playerId === player.id)) {
             if (this.disconnectTimeouts.has(player.id)) {
               clearTimeout(this.disconnectTimeouts.get(player.id));
@@ -190,8 +191,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           const players = await this.store.get("playersInRPChat");
           if (players.includes(player.id)) {
             // Keep in playersInRPChat — mark disconnected and start 1-hour expiry
-            const disconnected =
-              (await this.store.get("disconnectedRPChatPlayers")) ?? [];
+            const disconnected = [
+              ...((await this.store.get("disconnectedRPChatPlayers")) ?? []),
+            ];
             if (!disconnected.some((e) => e.playerId === player.id)) {
               const updatedDisconnected = [
                 ...disconnected,
@@ -246,7 +248,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             return;
           }
 
-          const roomPrefs = await this.store.get("playerRoomPreferences");
+          const roomPrefs = [...(await this.store.get("playerRoomPreferences"))];
           const playerPref = roomPrefs.find((e) => e.playerId == player.id);
           if (playerPref === undefined) {
             await this.rpChatLogger.updatePlayerRoomPref(player, Rooms.space);
@@ -372,15 +374,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
               this.cmdLore(player, localArgs[0]);
               break;
             case "time":
-              if (localArgs.length < 1) {
-                this.omegga.whisper(
-                  player,
-                  this.formattedErrorMessage(
-                    "Command requires at least 1 argument.",
-                  ),
-                );
-                return;
-              }
               this.cmdTime(
                 player,
                 localArgs[0],
@@ -485,7 +478,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
   async cmdHandleRPOptions(player: OmeggaPlayer, option: string) {
     try {
-      let players = await this.store.get("playersInRPChat");
+      let players = [...(await this.store.get("playersInRPChat"))];
 
       if (!option) {
         this.omegga.whisper(
@@ -512,7 +505,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         players.push(player.id);
         console.log(`Player ${player.name} has joined RP Chat.`);
 
-        const roomPrefs = await this.store.get("playerRoomPreferences");
+        const roomPrefs = [...(await this.store.get("playerRoomPreferences"))];
         const playerPref = roomPrefs.find((e) => e.playerId == player.id);
         if (playerPref === undefined) {
           await this.rpChatLogger.updatePlayerRoomPref(player, Rooms.space);
@@ -561,7 +554,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           );
         });
       } else if (["clear", "c"].includes(opt)) {
-        if (player.getRoles().includes("GM")) {
+        if ([...player.getRoles()].includes("GM")) {
           this.store.set("playersInRPChat", []);
           this.rpChatLogger.closeRPChatLogs();
           this.omegga.whisper(
@@ -715,11 +708,11 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   async cmdInitiative(player: OmeggaPlayer, subCmd: string) {
     try {
       const sub = (subCmd ?? "roll").toLowerCase();
-      const isGM = player.getRoles().includes("GM") || player.isHost();
+      const isGM = [...player.getRoles()].includes("GM") || player.isHost();
 
       if (sub === "roll") {
         const roll = this.getRandomInt(1, 20);
-        const order = (await this.store.get("initiativeOrder")) ?? [];
+        const order = [...((await this.store.get("initiativeOrder")) ?? [])];
         const updated = order.filter((e) => e.playerId !== player.id);
         updated.push({ playerId: player.id, playerName: player.name, roll });
         updated.sort((a, b) => b.roll - a.roll);
@@ -732,7 +725,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           ),
         );
       } else if (sub === "list" || sub === "l") {
-        const order = (await this.store.get("initiativeOrder")) ?? [];
+        const order = [...((await this.store.get("initiativeOrder")) ?? [])];
         if (order.length === 0) {
           this.omegga.whisper(
             player,
@@ -757,7 +750,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           );
           return;
         }
-        const order = (await this.store.get("initiativeOrder")) ?? [];
+        const order = [...((await this.store.get("initiativeOrder")) ?? [])];
         if (order.length === 0) {
           this.omegga.whisper(
             player,
@@ -868,7 +861,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     hourArg: string,
   ) {
     try {
-      const isGM = player.getRoles().includes("GM") || player.isHost();
+      const isGM = [...player.getRoles()].includes("GM") || player.isHost();
 
       if (!subCmd || subCmd === "show") {
         const stored = await this.store.get("galacticTime");
@@ -977,12 +970,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     const timeout = setTimeout(async () => {
       this.disconnectTimeouts.delete(playerId);
 
-      const players = await this.store.get("playersInRPChat");
+      const players = [...(await this.store.get("playersInRPChat"))];
       const updated = players.filter((e) => e !== playerId);
       this.store.set("playersInRPChat", updated);
 
-      const disconnected =
-        (await this.store.get("disconnectedRPChatPlayers")) ?? [];
+      const disconnected = [
+        ...((await this.store.get("disconnectedRPChatPlayers")) ?? []),
+      ];
       const updatedDisconnected = disconnected.filter(
         (e) => e.playerId !== playerId,
       );
