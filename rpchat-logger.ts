@@ -64,7 +64,7 @@ export class RPChatLogger {
         : await this.store.get("currentFileForSpaceRPChat");
       const roomString = playerPref.room == Rooms.fantasy ? "Fantasy 🧙‍♂️" : "Space 🌕";
       const logLine = `${event.dateTime}\n[${event.user}]: ${event.message}\n`;
-      const currentMessages = await this.store.get("messagesToSendViaWebhook") ?? [];
+      const currentMessages = [...(await this.store.get("messagesToSendViaWebhook") ?? [])];
       const updatedMessages = [...currentMessages, `(**${roomString}**) ${logLine}`];
       this.store.set("messagesToSendViaWebhook", updatedMessages);
 
@@ -204,7 +204,7 @@ export class RPChatLogger {
       return;
     }
 
-    const messagesToSend = await this.store.get("messagesToSendViaWebhook") ?? [];
+    const messagesToSend = [...(await this.store.get("messagesToSendViaWebhook") ?? [])];
     if (messagesToSend.length < 1) {
       return;
     }

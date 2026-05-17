@@ -188,7 +188,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       .on("leave", async (player: OmeggaPlayer) => {
         try {
           console.log(player.name + " has left");
-          const players = await this.store.get("playersInRPChat");
+          const players = [...(await this.store.get("playersInRPChat"))];
           if (players.includes(player.id)) {
             // Keep in playersInRPChat — mark disconnected and start 1-hour expiry
             const disconnected = [
@@ -218,7 +218,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         const player = this.omegga.getPlayer(name);
         if (!player) return;
         try {
-          const players = await this.store.get("playersInRPChat");
+          const players = [...(await this.store.get("playersInRPChat"))];
           if (players.includes(player.id)) {
             this.rpChatLogger.handleRPChatMessages(player, message);
           }
@@ -406,7 +406,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             return;
           }
 
-          const players = await this.store.get("playersInRPChat");
+          const players = [...(await this.store.get("playersInRPChat"))];
           if (players.includes(player.id)) {
             const colour = player.getNameColor();
             this.omegga.broadcast(
@@ -712,7 +712,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
       if (sub === "roll") {
         const roll = this.getRandomInt(1, 20);
-        const order = [...((await this.store.get("initiativeOrder")) ?? [])];
+        const rawOrder = (await this.store.get("initiativeOrder")) ?? [];
+        const order = [...rawOrder].map((e) => ({
+          playerId: e.playerId as string,
+          playerName: e.playerName as string,
+          roll: e.roll as number,
+        }));
         const updated = order.filter((e) => e.playerId !== player.id);
         updated.push({ playerId: player.id, playerName: player.name, roll });
         updated.sort((a, b) => b.roll - a.roll);
@@ -725,7 +730,11 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           ),
         );
       } else if (sub === "list" || sub === "l") {
-        const order = [...((await this.store.get("initiativeOrder")) ?? [])];
+        const order = [...((await this.store.get("initiativeOrder")) ?? [])].map((e) => ({
+          playerId: e.playerId as string,
+          playerName: e.playerName as string,
+          roll: e.roll as number,
+        }));
         if (order.length === 0) {
           this.omegga.whisper(
             player,
@@ -750,7 +759,11 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           );
           return;
         }
-        const order = [...((await this.store.get("initiativeOrder")) ?? [])];
+        const order = [...((await this.store.get("initiativeOrder")) ?? [])].map((e) => ({
+          playerId: e.playerId as string,
+          playerName: e.playerName as string,
+          roll: e.roll as number,
+        }));
         if (order.length === 0) {
           this.omegga.whisper(
             player,
