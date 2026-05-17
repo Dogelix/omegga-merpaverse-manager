@@ -141,13 +141,14 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
     const authorized = (name: string) => {
       const player = this.omegga.getPlayer(name);
+      if (!player) return false;
+      const authorizedUsers = [...this.config["authorized-users"]];
+      const authorizedRoles = [...this.config["authorized-roles"]];
       return (
         !this.config["only-authorized"] ||
         player.isHost() ||
-        this.config["authorized-users"].some((p) => player.id === p.id) ||
-        player
-          .getRoles()
-          .some((role) => this.config["authorized-roles"].includes(role))
+        authorizedUsers.some((p) => player.id === p.id) ||
+        [...player.getRoles()].some((role) => authorizedRoles.includes(role))
       );
     };
 
