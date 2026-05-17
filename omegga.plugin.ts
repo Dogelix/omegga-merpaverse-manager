@@ -54,6 +54,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
+  roll3d6(): number[] {
+    return Array.from({ length: 3 }, () => Math.floor(Math.random() * 6) + 1);
+  }
+
   async init() {
     this.store.set("playersInRPChat", []);
     this.store.set("messagesToSendViaWebhook", []);
@@ -248,7 +252,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             return;
           }
 
-          const roomPrefs = [...(await this.store.get("playerRoomPreferences"))];
+          const roomPrefs = [
+            ...(await this.store.get("playerRoomPreferences")),
+          ];
           const playerPref = roomPrefs.find((e) => e.playerId == player.id);
           if (playerPref === undefined) {
             await this.rpChatLogger.updatePlayerRoomPref(player, Rooms.space);
@@ -296,9 +302,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
               if (localArgs.length < 1) {
                 this.omegga.whisper(
                   player,
-                  this.formattedErrorMessage(
-                    "Command requires 1 argument.",
-                  ),
+                  this.formattedErrorMessage("Command requires 1 argument."),
                 );
                 return;
               }
@@ -316,9 +320,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
               if (localArgs.length < 2) {
                 this.omegga.whisper(
                   player,
-                  this.formattedErrorMessage(
-                    "Command requires 2 arguments.",
-                  ),
+                  this.formattedErrorMessage("Command requires 2 arguments."),
                 );
                 return;
               }
@@ -340,9 +342,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
               if (localArgs.length < 1) {
                 this.omegga.whisper(
                   player,
-                  this.formattedErrorMessage(
-                    "Command requires 1 argument.",
-                  ),
+                  this.formattedErrorMessage("Command requires 1 argument."),
                 );
                 return;
               }
@@ -353,9 +353,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
               if (localArgs.length < 1) {
                 this.omegga.whisper(
                   player,
-                  this.formattedErrorMessage(
-                    "Command requires 1 argument.",
-                  ),
+                  this.formattedErrorMessage("Command requires 1 argument."),
                 );
                 return;
               }
@@ -365,9 +363,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
               if (localArgs.length < 1) {
                 this.omegga.whisper(
                   player,
-                  this.formattedErrorMessage(
-                    "Command requires 1 argument.",
-                  ),
+                  this.formattedErrorMessage("Command requires 1 argument."),
                 );
                 return;
               }
@@ -589,8 +585,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         ),
       );
 
-      let attacker = this.getRandomInt(3, 18);
-      const defender = this.getRandomInt(3, 18);
+      let attacker = this.roll3d6().reduce((a, b) => a + b, 0);
+      let defender = this.roll3d6().reduce((a, b) => a + b, 0);
 
       if (ap > av) {
         const difference = ap - av;
@@ -730,7 +726,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           ),
         );
       } else if (sub === "list" || sub === "l") {
-        const order = [...((await this.store.get("initiativeOrder")) ?? [])].map((e) => ({
+        const order = [
+          ...((await this.store.get("initiativeOrder")) ?? []),
+        ].map((e) => ({
           playerId: e.playerId as string,
           playerName: e.playerName as string,
           roll: e.roll as number,
@@ -759,7 +757,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           );
           return;
         }
-        const order = [...((await this.store.get("initiativeOrder")) ?? [])].map((e) => ({
+        const order = [
+          ...((await this.store.get("initiativeOrder")) ?? []),
+        ].map((e) => ({
           playerId: e.playerId as string,
           playerName: e.playerName as string,
           roll: e.roll as number,
