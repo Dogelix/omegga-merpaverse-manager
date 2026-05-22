@@ -324,8 +324,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
                 );
                 return;
               }
-              const av = Number.parseInt(localArgs[0]);
-              const ap = Number.parseInt(localArgs[1]);
+              const av = Number.parseInt(localArgs[1]);
+              const ap = Number.parseInt(localArgs[0]);
               if (Number.isNaN(av) || Number.isNaN(ap)) {
                 this.omegga.whisper(
                   player,
@@ -441,7 +441,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         `> > Allows you to join the RP mode where all your chat messages will be logged unless you use <b>/ooc message</>`,
         `> <color="#ff7300ff">option: rp</>  <color="#00b7ffff">args: ('fantasy/f' or 'space/s')</>`,
         `> > Allows you to join the RP rooms for better logging.`,
-        `> <color="#ff7300ff">option: combat</>  <color="#00b7ffff">args: (av) (ap)</>`,
+        `> <color="#ff7300ff">option: combat</>  <color="#00b7ffff">args: (ap) (av)</>`,
         `> > Makes a combat roll. Shows the result to all players.`,
         `> <color="#ff7300ff">option: roll (r)</>  <color="#00b7ffff">args: (XdY+N) e.g. 2d6+3, d20</>`,
         `> > Rolls dice and broadcasts the result.`,
@@ -610,7 +610,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             `Defender rolled a <b>Critical Fail</>. Double damage taken.`,
           ),
         );
-      } else if (attacker === 18) {
+      } else if (attacker >= 18) {
         const critDamage = ap + 1;
         this.omegga.broadcast(
           this.formattedMessage(
